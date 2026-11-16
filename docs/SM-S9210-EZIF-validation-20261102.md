@@ -1,3 +1,5 @@
+> **Current shipped artifact (this repo/feed):** `artifacts/e1q-S9210ZHU6EZIF/cve-2026-43499-app.so` — SHA-256 `efc8b49caa9129539645689479eaa55b7aa0059e621997beee375a8a1a86a538`, 104128 bytes. Any earlier snapshot hashes referenced in this document's historical validation context (for example `7b68f38d…22e30cb` from the `58a6772` validation snapshot) are **historical-only** unless revalidated against the shipped artifact above.
+
 > **Candidate / experimental (ported to `samson910022/Root-My-Galaxy-Payloads-Next`)**  
 > Status: **not stable / not production-ready**. Ported with provenance preserved for testing and controlled validation only.  
 > Known limitations (see also validation records): repeatability not broadly established, reboot persistence not expected for volatile root paths, daemon/runtime byte-identity caveats in historical records, and app-vs-adb/UI/diagnostic behavior differences remain under investigation in source history.  
