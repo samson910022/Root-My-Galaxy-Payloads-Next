@@ -463,3 +463,11 @@ kernel release its device runs and its entry in `support/targets-v3.json` names
 the artifact that device was tested with; the generic tier is for devices with no
 entry of their own, and the two feeds are written by different jobs so neither
 can move the other.
+
+## Phase 1 migrated custom assets (samson910022/Root-My-Galaxy-Payloads-Next)
+
+| File | Target(s) | KMI / kernel notes | Notes |
+| --- | --- | --- | --- |
+| `ksud-dm3q-S9180ZHS8FZG1-kdp` | `SM-S9180`, `S9180ZHS8FZG1` | `android13-5.15` / 5.15.189 | Device-validated FZG1-specific KernelSU v3.3.0 (`32601`) loader sourced from validated Root-My-Galaxy-S23U bundle/device capture; preferred/proven loader for the FZG1 artifact set (historical S918B loader reuse documented in `REBUILD-dm3q-v3.3.0.md` and `docs/SM-S9180-S9180ZHS8FZG1.md`). |
+| `ksud-e1q-S9210ZHS6DZG1-kdp` | `SM-S9210`, `S9210ZHS6DZG1` | `android14-6.1` / 6.1.145 | Device-tested late-load binary for e1q DZG1; ported with PI-guarded exploit artifact lineage (see `docs/SM-S9210-S9210ZHS6DZG1.md` and artifact provenance in source repos).
+

@@ -479,19 +479,49 @@ static int run_kernelsu_late_load(struct su_request *request, int conn) {
     }
     if (loader == 0) {
       /* Let the downloaded target-specific ksud select its embedded module
-       * from the running kernel.  Ephemeral mode avoids replacing an existing
-       * /data/adb/ksud while the app only needs the module for this boot. */
-      execl(LOGCAT_PATH, "logcat", "late-load", "--ephemeral",
-            "--package-name", "me.weishu.kernelsu", (char *)NULL);
-      dprintf(STDERR_FILENO, "late-load: exec: %s\n", strerror(errno));
-      _exit(12);
+       * from the running kernel. Ephemeral mode avoids replacing an existing
+       * /data/adb/ksud while the app only needs the module for this boot.
+       * NOTE: some ksud builds reject --ephemeral (usage error) yet still
+       * exit 0, so the exit status cannot gate the fallback. Use the control
+       * check instead: if the module is not live after the ephemeral
+       * attempt, retry once without it. ksuds that honor --ephemeral verify
+       * on the first try and never reach the retry. */
+      pid_t attempt = fork();
+      if (attempt < 0) {
+        dprintf(STDERR_FILENO, "late-load: fork: %s\n", strerror(errno));
+        _exit(12);
+      }
+      if (attempt == 0) {
+        execl(LOGCAT_PATH, "logcat", "late-load", "--ephemeral",
+              "--package-name", "me.weishu.kernelsu", (char *)NULL);
+        dprintf(STDERR_FILENO, "late-load: exec: %s\n", strerror(errno));
+        _exit(12);
+      }
+      (void)wait_status(attempt);
+      if (verify_kernelsu_control() != 0) {
+        dprintf(STDERR_FILENO,
+                "late-load: module not live; retrying plain late-load\n");
+        pid_t retry = fork();
+        if (retry < 0) {
+          dprintf(STDERR_FILENO, "late-load: fork: %s\n", strerror(errno));
+          _exit(12);
+        }
+        if (retry == 0) {
+          execl(LOGCAT_PATH, "logcat", "late-load",
+                "--package-name", "me.weishu.kernelsu", (char *)NULL);
+          dprintf(STDERR_FILENO, "late-load: exec: %s\n", strerror(errno));
+          _exit(12);
+        }
+        (void)wait_status(retry);
+      }
+      _exit(verify_kernelsu_control());
     }
 
     int loader_status = wait_status(loader);
     if (loader_status != 0) {
       _exit(loader_status);
     }
-    _exit(verify_kernelsu_control());
+    _exit(0);
   }
   close_request_fds(request);
   return wait_status(pid);
