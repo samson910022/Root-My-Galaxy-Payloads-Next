@@ -1320,6 +1320,28 @@
         "sha256": "67b49cadfbbc518ac1fca3f7e514782110e896103882e7caa5cccaa1572ee542"
       },
       "requiresFreshP0Session": true
+    },
+    {
+      "payloadId": "e1q-S9210ZHU6EZIF",
+      "displayName": "Galaxy S24 (SM-S9210) | S9210ZHU6EZIF (CANDIDATE/EXPERIMENTAL) | Kernel 6.1.162",
+      "models": [
+        "SM-S9210"
+      ],
+      "kernelVersions": [
+        "6.1.162"
+      ],
+      "exploit": {
+        "url": "https://raw.githubusercontent.com/samson910022/Root-My-Galaxy-Payloads-Next/main/artifacts/e1q-S9210ZHU6EZIF/cve-2026-43499-app.so",
+        "size": 104128,
+        "sha256": "efc8b49caa9129539645689479eaa55b7aa0059e621997beee375a8a1a86a538"
+      },
+      "kernelsu": {
+        "url": "https://raw.githubusercontent.com/samson910022/Root-My-Galaxy-Payloads-Next/main/kernelsu/ksud-e1q-S9210ZHU6EZIF-kdp",
+        "size": 5065680,
+        "sha256": "fde99b5a129e5714fe6f598cf8276c76d2cbaf1a7f4e6ce9ae69d5ebca0abe61",
+        "version": "3.3.1"
+      },
+      "requiresFreshP0Session": true
     }
   ]
 }

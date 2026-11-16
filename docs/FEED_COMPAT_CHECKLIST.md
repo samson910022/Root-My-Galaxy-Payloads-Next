@@ -71,3 +71,46 @@ Optional/common fields observed:
 - Confirm whether v2 requires mirrored dm3q FZG1/e1q DZG1 entries for all consumers or if v3-only is acceptable in this branch's integration scope.
 - If app-side strict hash verification is enforced for all profiles, backfill `sha256`/`version` consistently across added entries (Phase 1 populates known values from source artifacts).
 - Revisit EZIF candidate signaling fields/representation in Phase 2 per migration plan open questions.
+
+## Phase 2 addendum (e1q-S9210ZHU6EZIF, candidate / experimental)
+
+### v3 entry added (`support/targets-v3.json`)
+
+| Field | Value / decision |
+|---|---|
+| `payloadId` | `e1q-S9210ZHU6EZIF` |
+| `displayName` | `Galaxy S24 (SM-S9210) | S9210ZHU6EZIF (CANDIDATE/EXPERIMENTAL) | Kernel 6.1.162` (explicit candidate signaling in human-readable label; **no schema field added**) |
+| `models` | `["SM-S9210"]` |
+| `kernelVersions` | `["6.1.162"]` (matches target firmware/kernel family as documented) |
+| `exploit.url` | `https://raw.githubusercontent.com/samson910022/Root-My-Galaxy-Payloads-Next/main/artifacts/e1q-S9210ZHU6EZIF/cve-2026-43499-app.so` |
+| `exploit.size` | `104128` |
+| `exploit.sha256` | `efc8b49caa9129539645689479eaa55b7aa0059e621997beee375a8a1a86a538` |
+| `kernelsu.url` | `https://raw.githubusercontent.com/samson910022/Root-My-Galaxy-Payloads-Next/main/kernelsu/ksud-e1q-S9210ZHU6EZIF-kdp` (v3.3.1-candidate lineage, best-recorded set) |
+| `kernelsu.size` | `5065680` |
+| `kernelsu.sha256` | `fde99b5a129e5714fe6f598cf8276c76d2cbaf1a7f4e6ce9ae69d5ebca0abe61` |
+| `kernelsu.version` | `3.3.1` |
+| `requiresFreshP0Session` | `true` (consistent with physical P0/oracle-style flow and DZG1 precedent) |
+
+**Dual KSU assets provisioned:** v3.3.1-candidate pair (`ksud-e1q-S9210ZHU6EZIF-kdp`, `android14-6.1_kernelsu-e1q-S9210ZHU6EZIF-kdp.ko`) and v3.3.0 fallback pair (`*-v3.3.0-kdp`) added under `kernelsu/` with hashes recorded in `artifacts/e1q-S9210ZHU6EZIF/README.md`. Only the primary (v3.3.1-candidate) loader is referenced by the feed entry.
+
+### Candidate/experimental representation (chosen)
+
+- **Schema/tooling:** unchanged. No new fields introduced in `targets-v3.json`/`targets-v2.json` and no changes required to `tools/update_feed.py`, `tools/update_exploit_feed.py`, or `tools/susfs_feed.py` for this entry format.
+- **Signaling:** explicit in `displayName` ("CANDIDATE/EXPERIMENTAL") plus `requiresFreshP0Session=true`; detailed status/limitations/provenance documented in `docs/SM-S9210-S9210ZHU6EZIF.md`, `docs/SM-S9210-EZIF-validation-20261102.md`, and `artifacts/e1q-S9210ZHU6EZIF/README.md`.
+- **App-side gating assumption:** consuming apps should treat this profile as opt-in/experimental based on labeling/provenance and any app-side policy (exact-release/profile selection/candidate UX per Next migration plan §4.4). This payload repo does not enforce UI gating.
+
+### v2 / related catalogs
+
+- `support/targets-v2.json`: **unchanged** (remains valid; no mirrored EZIF entry added, consistent with v2's limited legacy set and to avoid inventing incompatible representation).
+- `support/kernelsu-generic*.json`, `support/susfs-v1.json`: **unchanged**.
+
+### Phase 2 validation checklist
+
+- [x] `support/targets-v3.json` parses as JSON and pre-existing entries (including DDZJB/CVE-2026-98260, DZG1, FZG1) remain present/unchanged in meaning.
+- [x] `support/targets-v2.json` parses as JSON and unchanged.
+- [x] EZIF v3 entry fields consistent with schema: unique `payloadId`, correct `models`/`kernelVersions`, exploit/kernelsu `url`/`size`/`sha256` match on-disk files.
+- [x] Candidate signaling explicit via `displayName`; no schema-breaking fields added.
+- [x] Referenced artifact and primary kernelsu loader exist at declared paths; fallback KSU pair included for provenance.
+- [x] Docs/reconciliation updated to reflect EZIF additions, src deferrals, and limitations.
+
+**Known limitation (integration):** consumer behavior for candidate/opt-in gating depends on app-side policy/UX in Root-My-Galaxy-Next; payload feed alone provides labeling and metadata, not enforcement.

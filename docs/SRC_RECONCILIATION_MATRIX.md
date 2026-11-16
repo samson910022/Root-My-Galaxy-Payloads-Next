@@ -51,3 +51,33 @@
 - PI-guard commits (BuSung): `be9fc39` (skip sched_setattr on unpublished waiter tid), `a8d0841` (gate sched fire/fired logs)
 - Helper hardening (fork): `8cf29d9`, `tools/patches/helper-marker-removal.patch`, `tools/helper-reproducibility.md`
 - dm3q/e1q provenance: `docs/SM-S9180-S9180ZHS8FZG1.md`, `docs/SM-S9210-S9210ZHS6DZG1.md`, `artifacts/dm3q-S9180ZHS8FZG1/README.md`, `kernelsu/README.md`, `kernelsu/REBUILD-dm3q-v3.3.0.md`
+
+## Phase 2 addendum (e1q-S9210ZHU6EZIF, candidate / experimental)
+
+**Goal:** Port EZIF custom payload work as **candidate/experimental** without regressing DDZJB/CVE-2026-98260, DZG1, or FZG1.
+
+**Sources compared (read-only, EZIF):**
+- `/mnt/nvme_2TB/Users/samso/projects/Root-My-Galaxy-Payloads` `feature/e1q-S9210ZHU6EZIF-port@75a26a9` (integrated `8cf29d9`; includes EZIF adoption/validation commits e.g. `d467222`, `45c9741`, `bdfe377`, timing/retry experiments and reverts)
+- `/mnt/nvme_2TB/Users/samso/projects/Root-My-Galaxy-Payloads-fork` `main@8cf29d9` and `origin/feature/e1q-S9210ZHU6EZIF-port` (artifact/doc parity verified)
+- `/mnt/nvme_2TB/Users/samso/projects/Root-My-Galaxy-S24` validation docs/provenance context (`SM-S9210-EZIF-validation-20261102.md` lineage)
+
+### Summary (Phase 2)
+
+| File/area | Observed EZIF divergence / intent | Classification | Action (Phase 2) | Validation targets / evidence | Notes |
+|---|---|---|---|---|---|
+| `src/targets/e1q-S9210ZHU6EZIF/{target.h,p0_fingerprint.h}` | EZIF-specific offsets/fingerprint, timing knobs, `APP_FOPS_FRESH_PAGE_ATTEMPTS=5`, `APP_FOPS_SINGLE_PATH_RETRY 0` (disabled per PR #10 review/P1 rationale), `SLIDE_PSELECT_TIMEOUT_NSEC=500000000L`, etc. | **ours custom / device+firmware-specific, candidate** | **Add (ported).** | Hash-matched to source; build/compat relies on baseline support for `APP_FOPS_FRESH_PAGE_ATTEMPTS` and existing deferred/readback flows. | No stable promotion; target is firmware/kernel-specific (`SM-S9210`, `S9210ZHU6EZIF`, kernel `6.1.162`). |
+| `src/main.c` (EZIF adaptations in BuSung/fork history) | History includes EZIF-gated fresh-FOPS retry loop (`APP_FOPS_SINGLE_PATH_RETRY`, later **disabled to 0**), per-attempt `CONSUMER_START_DELAY_USEC` env tuning, `CONSUMER_MAX_CALLS==0` handling, deferred alias readback lifecycle tweaks, `CFI_FORCE_DIAG` override, and `probe_fops_and_production_touch`-based postwrite diagnostics (commits such as `380ffb9`, `19418fc`, `f5a05aa`, `d924c4e`, `158dfd6`, `a687ea9`, `bdfe377`). | **ours custom intent but conflicting-mixed against 98260/DDZJB baseline** | **Defer core code ports; no `main.c` edits applied.** Ported EZIF target config does not require `APP_FOPS_SINGLE_PATH_RETRY` (0) and uses knobs already supported by current baseline (`APP_FOPS_FRESH_PAGE_ATTEMPTS`). | Static review of diffs/history; DDZJB/98260 `main.c` behavior preserved unchanged. Runtime validation on EZIF hardware remains follow-up. | Env diagnostics (`CONSUMER_START_DELAY_USEC`, `CFI_FORCE_DIAG`) and `probe_fops_and_production_touch` are not present in baseline and would require careful rebase/testing; deferred to avoid perturbing 98260 timing-sensitive paths. **Risk:** EZIF may need further guarded adaptations if baseline flow differs from BuSung-era behavior under real conditions. |
+| `src/fops.c`, `src/slide_app.c`, `src/slide.c`, `src/pipe.c` (EZIF/PI-guard-adjacent history) | PI-guard hardening/diagnostic commits exist in source lines (e.g. `be9fc39`, `a8d0841`) and EZIF bring-up experiments; baseline diverges substantially post-98260. | **conflicting-mixed** | **Defer.** | N/A (no code changes). | Same rationale as Phase 1: rebase + device validation required before safe adoption. |
+| `artifacts/e1q-S9210ZHU6EZIF/cve-2026-43499-app.so` | Candidate app payload (104128 bytes, sha256 `efc8b49…6538`). | **ours custom / candidate artifact** | **Add (ported, hash-matched).** | Hash/size verified vs source repos. | Historical validation records may reference earlier snapshot hash `7b68f38d…` (`58a6772` lineage); this repo carries the ported current-source artifact above — lineage documented. |
+| `kernelsu/android14-6.1_kernelsu-e1q-S9210ZHU6EZIF-*-kdp.ko`, `kernelsu/ksud-e1q-S9210ZHU6EZIF-*-kdp` | Dual pairs: v3.3.1-candidate (primary feed ref) and v3.3.0 fallback. | **ours custom / candidate support assets** | **Add both pairs (ported).** | Hash/size verified vs source repos; validation docs record v3.3.1-candidate usage. | Feed references v3.3.1 ksud as best-recorded set; v3.3.0 retained for provenance/fallback testing. |
+| `docs/SM-S9210-S9210ZHU6EZIF.md`, `docs/SM-S9210-EZIF-validation-20261102.md`, `artifacts/e1q-S9210ZHU6EZIF/README.md` | Porting record, validation evidence, limitations, provenance. | **ours custom docs / evidence** | **Add (ported) with explicit candidate banners and limitation/provenance notes.** | Cross-referenced to source commits/branches and recorded artifacts. | Clearly states: experimental status, repeatability not established, reboot persistence not expected for volatile root, daemon byte-identity caveats, app-vs-adb/diagnostic differences, and artifact lineage distinctions. |
+
+### Applied vs deferred (Phase 2 src)
+
+**Applied:** `src/targets/e1q-S9210ZHU6EZIF/*` only (target headers + fingerprint). No shared/core `src/*.c` or `src/*.h` logic changes.
+
+**Deferred (with rationale):**
+- EZIF-era `main.c` diagnostic/tuning/retry hunks from BuSung line (including env overrides and production-touch probe): incompatible with or risky against 98260/DDZJB baseline without rebase and validation; final EZIF target currently disables single-path retry and can leverage baseline-supported attempt/defer mechanisms.
+- PI-guard and slide/FOPS/pipe core refinements: require 98260-aware rebase and multi-target validation.
+
+**Regression posture:** `src/targets/pa3q-S938U1UEUDDZJB/*`, `src/kernelsnitch/*`, DDZJB feed entries, and existing DZG1/FZG1 profiles/artifacts untouched by this phase.
