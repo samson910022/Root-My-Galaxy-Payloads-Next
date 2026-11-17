@@ -15,7 +15,27 @@
  * Symbol offsets = vaddr - KIMAGE_TEXT_BASE. Trace event id and all
  * structure offsets were recomputed from this Image's BTF, not copied from
  * FZF5/FZG1 (those are included only as provenance references below).
+ *
+ * UNSUPPORTED TARGET — DO NOT BUILD, DO NOT FLASH, DO NOT PUBLISH.
+ * This profile is missing constants the payload requires (P0_FINGERPRINT_HEADER,
+ * the oracle gate/probe slot layout, ASHMEM_MISC_FOPS_OFF,
+ * SLIDE_RANDOM_TABLE_BOOT_ID_DATA_PTR_OFF, and the refined task/bank/slab
+ * structure layout derived only from the exact Image), has never been built
+ * or run, and has no device evidence. It is retained only as a research
+ * record. See README.md in this directory and docs/SM-S9180-S9180ZHU8GZIF.md.
  */
+
+/* DM3Q_GZIF_UNSUPPORTED_TARGET: hard build gate. Any attempt to build the
+ * payload variants of this target (the preload/app-preload recipes) stops
+ * here unless the builder explicitly defines DM3Q_GZIF_UNSUPPORTED_TARGET_OK
+ * after deriving and providing every missing constant from the exact
+ * S9180ZHU8GZIF Image. (`su_daemon.c`, the generic root helper, carries no
+ * target constants and is deliberately untouched.) There is no supported
+ * build today; the gate exists so a green build can never be mistaken for a
+ * working payload. */
+#if !defined(DM3Q_GZIF_UNSUPPORTED_TARGET_OK)
+#error "dm3q-S9180ZHU8GZIF is an unsupported research target and refuses to build (define DM3Q_GZIF_UNSUPPORTED_TARGET_OK to attempt a build anyway; you will still lack most constants). See src/targets/dm3q-S9180ZHU8GZIF/README.md and docs/SM-S9180-S9180ZHU8GZIF.md"
+#endif
 
 #if defined(APP_PAYLOAD) && APP_PAYLOAD
 #define BUILD_VARIANT_LABEL "dm3q-S9180ZHU8GZIF-app"
@@ -130,6 +150,12 @@
  0x1c0000ULL, 0x1c8000ULL, 0x1d0000ULL, 0x1d8000ULL, \
  0x1e0000ULL, 0x1e8000ULL, 0x1f0000ULL, 0x1f8000ULL
 #define SLIDE_MAX_ATTEMPTS 64
+/* Forced-offset (SLIDE_P0_OFFSET) grid for this target: same 0x8000 stride as
+ * SLIDE_P0_OFFSET_CANDIDATES, top candidate 0x1f8000. Without these, the
+ * shared forced-offset check falls back to the classic 0x10000-grid rule and
+ * rejects 32 of this table's 64 candidates (see docs/SM-S9180-S9180ZHU8GZIF.md). */
+#define SLIDE_P0_FORCE_ALIGN 0x8000ULL
+#define SLIDE_P0_FORCE_MAX   0x1f8000ULL
 
 /* Image offset of the kCFI-visible "nfnetlink_log" string and of the
  * nfulnl_logger object (vmlinux symbol; file offset = vaddr - base). */
