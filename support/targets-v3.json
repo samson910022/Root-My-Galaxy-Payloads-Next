@@ -3,7 +3,7 @@
   "payloads": [
     {
       "payloadId": "galaxy-s25-series-2026-06-07",
-      "displayName": "Galaxy S25 series | Kernel 6.6.98",
+      "displayName": "Galaxy S25 series | Kernel 6.6.98 | S938N pairing unverified",
       "models": [
         "SM-S9310",
         "SM-S931B",
@@ -41,11 +41,13 @@
       ],
       "exploit": {
         "url": "https://raw.githubusercontent.com/rushiranpise/Root-My-Galaxy-Payloads/main/artifacts/pa3q-S938NKSUACZF1/cve-2026-43499-app.so",
-        "size": 104128
+        "size": 104128,
+        "sha256": "a2f4ea22c066764f0283afec69f8d9b181980cb2fc1fef8834975fc6274567f5"
       },
       "kernelsu": {
         "url": "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/kernelsu/ksud-s25u-kdp",
-        "size": 6407096
+        "size": 6407096,
+        "sha256": "fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63"
       }
     },
     {
@@ -188,7 +190,8 @@
       },
       "kernelsu": {
         "url": "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/kernelsu/ksud-s25u-kdp",
-        "size": 6407096
+        "size": 6407096,
+        "sha256": "fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63"
       }
     },
     {
@@ -206,7 +209,8 @@
       },
       "kernelsu": {
         "url": "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/kernelsu/ksud-s25u-kdp",
-        "size": 6407096
+        "size": 6407096,
+        "sha256": "fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63"
       }
     },
     {
@@ -224,7 +228,8 @@
       },
       "kernelsu": {
         "url": "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/kernelsu/ksud-s25u-kdp",
-        "size": 6407096
+        "size": 6407096,
+        "sha256": "fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63"
       }
     },
     {
@@ -1163,7 +1168,8 @@
       ],
       "exploit": {
         "url": "https://raw.githubusercontent.com/rushiranpise/Root-My-Galaxy-Payloads/main/artifacts/pa3q-S938NKSUACZF1/cve-2026-43499-app.so",
-        "size": 104128
+        "size": 104128,
+        "sha256": "a2f4ea22c066764f0283afec69f8d9b181980cb2fc1fef8834975fc6274567f5"
       },
       "kernelsu": {
         "url": "https://raw.githubusercontent.com/rushiranpise/Root-My-Galaxy-Payloads/main/kernelsu/ksud-pa3q-S938USQSCCZF9-kdp",
@@ -1184,7 +1190,8 @@
       "flavor": "kernelsu-next",
       "exploit": {
         "url": "https://raw.githubusercontent.com/rushiranpise/Root-My-Galaxy-Payloads/main/artifacts/pa3q-S938NKSUACZF1/cve-2026-43499-app.so",
-        "size": 104128
+        "size": 104128,
+        "sha256": "a2f4ea22c066764f0283afec69f8d9b181980cb2fc1fef8834975fc6274567f5"
       },
       "kernelsu": {
         "url": "https://raw.githubusercontent.com/rushiranpise/Root-My-Galaxy-Payloads/main/kernelsu/ksud-next-pa3q-S938USQSCCZF9-kdp",
@@ -1205,7 +1212,8 @@
       "flavor": "resukisu",
       "exploit": {
         "url": "https://raw.githubusercontent.com/rushiranpise/Root-My-Galaxy-Payloads/main/artifacts/pa3q-S938NKSUACZF1/cve-2026-43499-app.so",
-        "size": 104128
+        "size": 104128,
+        "sha256": "a2f4ea22c066764f0283afec69f8d9b181980cb2fc1fef8834975fc6274567f5"
       },
       "kernelsu": {
         "url": "https://raw.githubusercontent.com/rushiranpise/Root-My-Galaxy-Payloads/main/kernelsu/ksud-rsksu-pa3q-S938USQSCCZF9-kdp",

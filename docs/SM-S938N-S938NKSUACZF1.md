@@ -52,7 +52,7 @@ Every item is recorded as **passed** (evidence retained in-tree), **recorded** (
 | 6 | Build output | **recorded (CI provenance), not rebuilt for this record** | `artifacts/pa3q-S938NKSUACZF1/cve-2026-43499-app.so`: 104128 bytes, SHA-256 `a2f4ea22c066764f0283afec69f8d9b181980cb2fc1fef8834975fc6274567f5`; matches feed sizes in `support/targets-v3.json`; committed by the Exploit workflow (`e99bf42`, "Built by the Exploit workflow from 4350c7c"); local rebuild/re-verification not performed |
 | 7 | KernelSU audit | **not run** | `kernelsu/README.md:33` lists `android15-6.6_kernelsu-s25u-kdp.ko` as the "Standalone reference module from the previously deployed S25U build" (line 34 describes `ksud-s25u-kdp` as the "Late-load binary embedding the 6.6 module"); no symbol check / relocation / CRC audit record exists for ACZF1 (audits are documented for other targets only); no `vmlinux.elf`/`Module.symvers` available |
 | 8 | Authorized hardware validation (owned or explicitly authorized S938N unit) | **blocked — not run** | no S938N unit available or authorized for this record; the repository contains **zero hash-bound validation records** for this profile (no dated `su -c id` receipt, no `uname`, no Manager status) |
-| 9 | Feed registration | **deliberately not registered as standalone** | SM-S938N/6.6.98 is served only by the shared `galaxy-s25-series-2026-06-07` entry; standalone registration rejected pending rows 1-8 |
+| 9 | Feed registration | **deliberately not registered as standalone** | SM-S938N/6.6.98 is served only by the shared `galaxy-s25-series-2026-06-07` entry; standalone registration rejected pending rows 1-8. Byte-identity of the served URLs was verified 2026-11-18 and the bytes pinned into `support/targets-v3.json`/`support/targets-v2.json` (hashes in `docs/FEED_COMPAT_CHECKLIST.md` Phase 6 addendum): the v3 `rushiranpise` exploit bytes are identical to this repository's artifact (`a2f4ea22…`) and the shared `ksud-s25u-kdp` bytes are identical on BuSung-dev and rushiranpise (both verified 2026-11-18) (`fa3edcc7…`); the v2 legacy standalone profile serves **different bytes** (`6311e5ae…`, provenance unverified — pinned for drift detection, not trust). S938N exposure in both catalogs is a recorded, accepted legacy risk — see §6 |
 
 ## 4. Required manual review before any production claim
 
@@ -70,3 +70,36 @@ Every item is recorded as **passed** (evidence retained in-tree), **recorded** (
 - The `S938USQSCCZF9` sibling port (different model, different build, upstream PR #18) is not evidence for ACZF1.
 - `docs/SM-S938N-latest.md` (added by the closed PR) was never part of this repository and is superseded by this file.
 - This record does not claim the profile is safe, supported, or shippable. It records what is pinned, what was reviewed, and what remains unverified.
+
+## 6. Decision record (2026-11-18) — S938N feed exposure kept, pinned, documented
+
+Owner decision, 2026-11-18, recorded after the external deep review of PR #1
+(finding 2, `samson910022/Root-My-Galaxy-Payloads-Next#1`) flagged that S938N
+remains downloadable from the feeds despite §3 row 8 reporting no hardware
+validation:
+
+- **Kept:** the shared v3 `galaxy-s25-series-2026-06-07` entry remains the only
+  v3 match for (SM-S938N, 6.6.98), and the legacy v2 standalone profile
+  remains served. Removing the S938N pairing was considered and rejected:
+  a standalone v3 entry would contradict the one-entry-per-shared-artifact
+  policy, and dropping S938N from the shared entry would silently remove
+  support for a device whose shared artifact plausibly works — no validated
+  S938N-specific artifact distinct from the shared one exists today, and
+  removing it changes nothing about the other 29 models' exposure.
+- **Pinned:** the exact served bytes are now recorded as `sha256` in both
+  catalogs (see `docs/FEED_COMPAT_CHECKLIST.md` Phase 6 addendum for URLs,
+  sizes, hashes, and re-verification commands). The v2 exploit URL serves
+  bytes this repository cannot attest (`6311e5ae…`); they are pinned for drift
+  detection, **not** as a trust stamp. The `sha256` keys are additive for v2;
+  tolerance of the key by released 0.2.3 clients is unverified (the app is
+  out-of-tree) and was accepted as part of this decision — see the addendum's
+  "Assumption logged" note.
+- **Marked:** the v3 shared entry's human-readable `displayName` now says
+  `S938N pairing unverified`. No schema change; no model was added or removed.
+- **Not implied:** none of the above is a safety clearance. Until rows 1-8 of
+  §3 clear on an owned or explicitly authorized S938N unit, S938N use of these
+  artifacts is an accepted, recorded legacy risk.
+- **Open follow-ups:** (a) standalone v3 registration remains deferred until
+  rows 1-8 clear; (b) the `(SM-S938U1, 6.6.98)` duplicate class listed in
+  `docs/FEED_COMPAT_CHECKLIST.md` remains an owner decision tied to the
+  `pa3q-S938USQSCCZF9` profile (upstream PR #18) — not changed here.

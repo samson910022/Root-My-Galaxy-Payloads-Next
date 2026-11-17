@@ -41,8 +41,10 @@ The app extracts the leading numeric version from `uname -r`. Kernel suffixes,
 Android build displays, fingerprints, and security-patch dates do not
 participate in matching.
 
-`targets-v2.json` remains unchanged for released 0.2.3 clients. New clients
-read only schema version 3.
+`targets-v2.json` remains the released 0.2.3 contract, with the sole exception of
+optional additive `sha256` drift pins recorded 2026-11-18 (see
+`docs/FEED_COMPAT_CHECKLIST.md`, Phase 6 addendum — no entry added, removed, or
+repointed). New clients read only schema version 3.
 
 ## The generic tier
 
