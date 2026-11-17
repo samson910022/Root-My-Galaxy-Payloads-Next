@@ -4,7 +4,7 @@ name: PR checks
 # `src/targets/*` at all. This workflow is the non-publishing gate: it never
 # commits, never points the feed anywhere, and holds a read-only token. It checks
 #   1. the forced-offset grid unit test (host, two configurations);
-#   2. every committed P0 fingerprint table for fully-duplicated rows;
+#   2. every committed P0 fingerprint table (byte-identical or duplicate-slide rows fail; weak pairs annotate);
 #   3. the feed files parse, plus the invariants this PR's history depends on;
 #   4. the explicitly unsupported targets refuse to build (contract assertion);
 #   5. served targets whose target.h changed in this PR still build.
@@ -51,7 +51,7 @@ jobs:
               -Wall -Wextra -Werror -o /tmp/offsetcheck-gzif tools/test_slide_offset_check.c
           /tmp/offsetcheck-gzif
 
-      - name: P0 fingerprint tables audit (fail on fully-duplicated rows)
+      - name: P0 fingerprint tables audit (byte-identical/duplicate-slide rows fail; weak pairs warn)
         run: |
           set -eu
           shopt -s nullglob
@@ -216,7 +216,7 @@ jobs:
             # merely *mentions* the gate marker in a comment is NOT skipped.
             probe=$(gcc -fsyntax-only -x c-header -Isrc "-DTARGET_HEADER=\"targets/$t/target.h\"" src/offset.h 2>&1 || true)
             if printf '%s\n' "$probe" | grep -q 'DM3Q_GZIF_UNSUPPORTED_TARGET'; then
-              echo "$t: unsupported gate, skipping build (covered by the gate assertion step for dm3q-S9180ZHU8GZIF)"
+              echo "$t: unsupported gate, skipping build (covered by the gate assertion step; dm3q-S9180ZHU8GZIF is the only gate-marked target today)"
             else
               valid="$valid $t"
             fi
@@ -224,7 +224,7 @@ jobs:
           # Canary for shared sources: this PR changes src/shared code without
           # changing any served target.h (exactly the PR #1 shape), so building
           # only changed target.h files would compile nothing. Always build the
-          # reference served target in that case. (The push-only Exploit
+          # reference served target whenever src/** or Makefile changed. (The push-only Exploit
           # workflow builds all served targets post-merge; this catches the
           # failure pre-merge.)
           src_changed=$(git diff --name-only "origin/$BASE_REF...HEAD" -- 'src/**' 'Makefile' | head -1)

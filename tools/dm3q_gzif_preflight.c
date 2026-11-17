@@ -44,8 +44,8 @@
  *   aarch64-linux-android35-clang -static -Wall -Wextra -Werror -O2 \
  *     -o dm3q_gzif_preflight tools/dm3q_gzif_preflight.c
  * (Android NDK r28c, android-35, fully static; no recipe ships in this
- * repository — the binary is gitignored; tools/dm3q_gzif_preflight.c is the
- * source of truth. pr-checks.yml compiles it as a bit-rot guard.)
+ * repository — the binary must NOT be committed; tools/dm3q_gzif_preflight.c
+ * is the source of truth. pr-checks.yml compiles it as a bit-rot guard.)
  */
 #define _GNU_SOURCE
 #include <errno.h>

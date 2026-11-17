@@ -24,10 +24,10 @@ Scope and model notes:
 - Degenerate all-zero sampled page: rows containing committed zero qwords
   (exact Image bytes) are individually reported, and the all-zero page is
   scored against every row. Under the DEFAULT scorer an all-zero page can
-  satisfy the acceptance floor (best_score >= 2, best > second) for any row
-  with at least two zero qwords — reported as a WARNING class, never gated
-  here (nearly all historical tables trip it; the GZIF re-derivation
-  checklist tracks it).
+  satisfy the acceptance floor (best_score >= 2, best > second) when some
+  row's zeros are the table's unique best score — reported as a WARNING
+  class, never gated here (nearly all historical tables trip it; the GZIF
+  re-derivation checklist tracks it).
 
 Usage:
   python3 tools/p0_fingerprint_audit.py P0_FINGERPRINT_H [--fail-at N] [--top K] [--warn-at N] [--github]
@@ -62,8 +62,9 @@ NOP_QWORD = 0xd503201fd503201f  # two aarch64 NOPs packed little-endian
 def load_table(path):
     try:
         text = open(path).read()
-    except OSError as e:
-        sys.exit(f"error: cannot read {_gh_prop(path)}: {_gh_prop(e.strerror or '')}")
+    except (OSError, UnicodeDecodeError) as e:
+        detail = getattr(e, 'strerror', None) or str(e)
+        sys.exit(f"error: cannot read {_gh_prop(path)}: {_gh_prop(detail)}")
     rows = []
     for m in ROW_RE.finditer(text):
         slide = int(m.group(1), 16)
