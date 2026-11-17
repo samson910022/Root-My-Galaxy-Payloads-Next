@@ -39,6 +39,13 @@
  * Run from `adb shell` (or any app context you wish to test):
  *   adb push dm3q_gzif_preflight /data/local/tmp/
  *   adb shell /data/local/tmp/dm3q_gzif_preflight [--strict]
+ *
+ * Reproduce the device binary (verified on the author's host, 2026-11-17):
+ *   aarch64-linux-android35-clang -static -Wall -Wextra -Werror -O2 \
+ *     -o dm3q_gzif_preflight tools/dm3q_gzif_preflight.c
+ * (Android NDK r28c, android-35, fully static; no recipe ships in this
+ * repository — the binary is gitignored; tools/dm3q_gzif_preflight.c is the
+ * source of truth. pr-checks.yml compiles it as a bit-rot guard.)
  */
 #define _GNU_SOURCE
 #include <errno.h>
@@ -108,10 +115,13 @@ static void print_field(const char *path, const char *key) {
 
 static void print_file(const char *path) {
     char buf[512];
-    if (read_whole(path, buf, sizeof(buf)) < 0) {
+    ssize_t off = read_whole(path, buf, sizeof(buf));
+    if (off < 0) {
         printf("%-44s errno=%d (%s)\n", path, errno, strerror(errno));
         return;
     }
+    if ((size_t)off == sizeof(buf) - 1)
+        printf("%-44s note: %s truncated to %zu bytes\n", path, path, sizeof(buf) - 1);
     /* small single-line files: trim trailing newline for tidy output */
     size_t n = strlen(buf);
     while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r')) buf[--n] = '\0';

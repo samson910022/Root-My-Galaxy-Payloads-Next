@@ -96,7 +96,7 @@ unzip -p SM-S9180_BRI_GZIF.zip 'AP_*.tar.md5' | tar -xOf - --occurrence=1 super.
 - Independent re-verification: `lz4 -t` over the same stream —
   `stdin : decoded 11119601864 bytes`, `pipestatus: 141 0 0` (unzip/tar/lz4; lz4 exit 0) —
   i.e. full decode **and frame-end XXH32 content-checksum verification passed**.
-- Free space before: **791 GiB** avail (`df -h /mnt/nvme_2TB`).
+- Free space before: **791 GiB** avail (analysis host scratch volume).
 
 ---
 
@@ -313,8 +313,8 @@ Kept for the policy-analysis task (staging dir `host-side GZIF-vendor-work/`):
 - `vendor_listing.txt`, `vendor_dlkm_listing.txt` — full EROFS directory dumps (nid\ttype\tpath)
 - `super_info.txt`, `super_extract.py`, `extract_super.log`, `lz4test.log`, `extract_super.sh`, `erofs_walk*.py`
 
-Free space on `/mnt/nvme_2TB`: **789 GiB avail** now (was 791 GiB before this task;
-~2.0 GB retained artifacts). `/mnt/240G_SSD` untouched (35 GiB avail, read-only usage
+Free space on the analysis host scratch volume: **789 GiB avail** now (was 791 GiB before this task;
+~2.0 GB retained artifacts). The second volume was left untouched (35 GiB avail, read-only usage
 throughout). No other deletions performed. Staging dir total: 2.0 GB (`du -sh`).
 
 ---

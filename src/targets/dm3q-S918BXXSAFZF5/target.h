@@ -103,6 +103,13 @@
   0x1c0000ULL, 0x1c8000ULL, 0x1d0000ULL, 0x1d8000ULL, \
   0x1e0000ULL, 0x1e8000ULL, 0x1f0000ULL, 0x1f8000ULL
 #define SLIDE_MAX_ATTEMPTS 64
+/* Forced-offset (SLIDE_P0_OFFSET) grid: same 0x8000 stride as the table
+ * above, top candidate 0x1f8000. Without these, the shared forced-offset
+ * check falls back to the classic 0x10000-grid rule and rejects 32 of
+ * this table's 64 candidates (see docs/SM-S9180-S9180ZHU8GZIF.md §5 for
+ * the GZIF-side record of the same defect class). */
+#define SLIDE_P0_FORCE_ALIGN 0x8000ULL
+#define SLIDE_P0_FORCE_MAX   0x1f8000ULL
 
 #if defined(APP_PAYLOAD) && APP_PAYLOAD
 #define ROUTE_WAIT_SECONDS 8

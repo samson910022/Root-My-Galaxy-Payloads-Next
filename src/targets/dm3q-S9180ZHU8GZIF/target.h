@@ -1,3 +1,16 @@
+/* DM3Q_GZIF_UNSUPPORTED_TARGET — gate FIRST, before the include guard:
+ * it must fire even if a consumer predefines OFFSET_H or otherwise steps
+ * around the include guard. Any attempt to build the payload variants of
+ * this target (the preload/app-preload recipes) stops here unless the
+ * builder explicitly defines DM3Q_GZIF_UNSUPPORTED_TARGET_OK after deriving
+ * and providing every missing constant from the exact S9180ZHU8GZIF Image.
+ * (`su_daemon.c`, the generic root helper, carries no target constants and is
+ * deliberately untouched.) There is no supported build today; the gate exists
+ * so a green build can never be mistaken for a working payload. */
+#if !defined(DM3Q_GZIF_UNSUPPORTED_TARGET_OK)
+#error "dm3q-S9180ZHU8GZIF is an unsupported research target and refuses to build (define DM3Q_GZIF_UNSUPPORTED_TARGET_OK to attempt a build anyway; you will still lack most constants). See src/targets/dm3q-S9180ZHU8GZIF/README.md and docs/SM-S9180-S9180ZHU8GZIF.md"
+#endif
+
 #ifndef OFFSET_H
 #define OFFSET_H
 
@@ -7,10 +20,13 @@
  * STATIC DERIVATION ONLY (2026-11-17). Values below were derived offline
  * from the raw kernel Image of S9180ZHU8GZIF (5.15.197-android13-8-34343818,
  * built 2026-09-28, SPL 2026-10-05) using vmlinux-to-elf + BTF + nm.
- * Nothing here has been validated on device. There is NO working exploit
- * for this build yet (CVE-2026-43499 is binary-patched; CVE-2026-98260 and
- * CVE-2026-43284 are present but unported). Do not publish artifacts built
- * from this profile and do not flash it.
+ * Nothing here has been validated on device. There is no working payload
+ * built from this profile or from this repository for this build (this
+ * in-repo target has never compiled). A hardware-validated root chain for
+ * this exact build does exist in the out-of-tree DFRoot-GZIF fork (see
+ * docs/GZIF-validation-summary-20261117.md §6 and docs/SM-S9180-S9180ZHU8GZIF.md §6.5–§6.8) — it does not
+ * use this target header or this repository's payload. Do not publish
+ * artifacts built from this profile and do not flash it.
  *
  * Symbol offsets = vaddr - KIMAGE_TEXT_BASE. Trace event id and all
  * structure offsets were recomputed from this Image's BTF, not copied from
@@ -24,18 +40,6 @@
  * or run, and has no device evidence. It is retained only as a research
  * record. See README.md in this directory and docs/SM-S9180-S9180ZHU8GZIF.md.
  */
-
-/* DM3Q_GZIF_UNSUPPORTED_TARGET: hard build gate. Any attempt to build the
- * payload variants of this target (the preload/app-preload recipes) stops
- * here unless the builder explicitly defines DM3Q_GZIF_UNSUPPORTED_TARGET_OK
- * after deriving and providing every missing constant from the exact
- * S9180ZHU8GZIF Image. (`su_daemon.c`, the generic root helper, carries no
- * target constants and is deliberately untouched.) There is no supported
- * build today; the gate exists so a green build can never be mistaken for a
- * working payload. */
-#if !defined(DM3Q_GZIF_UNSUPPORTED_TARGET_OK)
-#error "dm3q-S9180ZHU8GZIF is an unsupported research target and refuses to build (define DM3Q_GZIF_UNSUPPORTED_TARGET_OK to attempt a build anyway; you will still lack most constants). See src/targets/dm3q-S9180ZHU8GZIF/README.md and docs/SM-S9180-S9180ZHU8GZIF.md"
-#endif
 
 #if defined(APP_PAYLOAD) && APP_PAYLOAD
 #define BUILD_VARIANT_LABEL "dm3q-S9180ZHU8GZIF-app"

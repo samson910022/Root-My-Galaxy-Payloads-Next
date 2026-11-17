@@ -98,7 +98,7 @@ candidate files.
 - Phone-number-derived IMS identity: `<ims-uri>` (`run4_logcat.txt:102618`, `:102853`, `:102972`, `:102973`); `impu` assignment logged at `:102853`.
 - **The user's real name in Chinese** and account IDs in Samsung cloud-sync lines: `<name-zh> 的 S23 Ultra`, `<name-zh> 的 Watch5`, `<name-zh>的「WH-1000XM4」`, `<name-zh>的「Beosound A1 2nd Gen」`, `<name-zh>的「Redmi Buds 6」`, owner ID `<account-id>` (e.g. `run3_logcat.txt:406`, `:430`, `:581`, `:786`; `run6_logcat.txt:14284`, `:67331`, `:67334`, `:67526`, `:68233`, `:69114`, `:69154`, `:69202`, `:66930`; `run8_logcat.txt:30405`; `run6_logcat.txt:67331`). This is the most sensitive item found anywhere in the review.
 - SmartTag device IDs and geolocation-state lines (`run5_logcat.txt:27109`, `:50418`, …; `run6_logcat.txt:14250`, `:14255`, `:14284`), Bluetooth device names/MACs of the user's peripherals, account-push registration lines (`run6_logcat.txt:2189`).
-- App-private data paths and Crash dumps: `dropbox_all.txt:1998` (`/data/app/~~aBmf51PTabz-8KeOt8_Vlw==/me.weishu.kernelsu-…/lib/arm64/libksud.so`), `dropbox_all.txt` (≈1.2 MB; SYSTEM_LAST_KMSG 191–195 KP entries), `kmsg_195.txt` (bootloader/XBL MIPI dumps, `Bootloader: S9180ZHU8GZIF`, `Radio: S9180ZCU8GZIF`).
+- App-private data paths and Crash dumps: `dropbox_all.txt:1998` (`/data/app/~~<install-suffix>/me.weishu.kernelsu-…/lib/arm64/libksud.so`), `dropbox_all.txt` (≈1.2 MB; SYSTEM_LAST_KMSG 191–195 KP entries), `kmsg_195.txt` (bootloader/XBL MIPI dumps, `Bootloader: S9180ZHU8GZIF`, `Radio: S9180ZCU8GZIF`).
 
 `run3_logcat.txt` and `next-failure-evidence.txt` additionally show the phone was repeatedly hard-reset (5× kernel panics: `dropbox_all.txt:11766`, `:12880`, `:13994`, `:17902`; `kmsg_195.txt:8`).
 

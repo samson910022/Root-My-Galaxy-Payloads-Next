@@ -20,6 +20,8 @@ on:
       - 'Makefile'
       - 'support/**'
       - 'artifacts/**'
+      - 'kernelsu/**'
+      - 'susfs/**'
       - '.github/workflows/**'
       - 'docs/**'
 
@@ -34,6 +36,7 @@ jobs:
   pr-checks:
     name: pr-checks
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -60,8 +63,15 @@ jobs:
           echo "auditing ${#tables[@]} committed fingerprint tables"
           for h in "${tables[@]}"; do
             echo "== $h"
-            python3 tools/p0_fingerprint_audit.py "$h" --fail-at 8
+            python3 tools/p0_fingerprint_audit.py "$h" --fail-at 8 --github
           done
+
+      - name: Read-only preflight probe source compiles (bit-rot guard)
+        run: |
+          set -eu
+          gcc -Wall -Wextra -Werror -O2 -o /tmp/dm3q_gzif_preflight tools/dm3q_gzif_preflight.c
+          /tmp/dm3q_gzif_preflight --help >/dev/null
+          echo 'dm3q_gzif_preflight builds and runs'
 
       - name: Feed files parse; PR-critical invariants hold
         # The S938N/6.6.98 mapping is the tripwire recorded in
@@ -70,7 +80,8 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os, hashlib
-          d2 = json.load(open('support/targets-v2.json'))  # step name promises both feed files parse
+          for name in ('targets-v2', 'targets-v3', 'kernelsu-generic', 'kernelsu-generic-susfs', 'susfs-v1'):
+              json.load(open(f'support/{name}.json'))
           d3 = json.load(open('support/targets-v3.json'))
           assert d3.get('schemaVersion') == 3, 'v3 schemaVersion'
           # PR #1 disposition: SM-S938N/6.6.98 is served only by the shared entry.
@@ -89,10 +100,12 @@ jobs:
                   obj = p.get(kind, {})
                   assert isinstance(obj, dict), f'{payload}: {kind}: not an object'
                   url = obj.get('url', '')
+                  assert isinstance(url, str) and url, f'{payload}: {kind}: missing or empty url'
                   if 'Root-My-Galaxy-Payloads-Next' not in url:
                       continue
                   parts = url.split('/main/', 1)
                   assert len(parts) == 2, f'{payload}: {kind}: unparseable this-repo URL {url!r}'
+                  assert obj.get('size'), f'{payload}: {kind}: this-repo entry missing size'
                   rel = os.path.normpath(parts[1])
                   root = os.path.realpath('.')
                   path = os.path.realpath(os.path.join(root, rel))
@@ -119,6 +132,9 @@ jobs:
             exit 1
           fi
           if ! printf '%s\n' "$gate_out" | grep -q 'DM3Q_GZIF_UNSUPPORTED_TARGET'; then
+            # Substring is intentional: both the gate comment and the documented
+            # opt-out (DM3Q_GZIF_UNSUPPORTED_TARGET_OK) contain it; a rewording
+            # fails this step closed, which is the safe direction.
             echo '::error::dm3q-S9180ZHU8GZIF fails, but not on the unsupported-target gate:'
             printf '%s\n' "$gate_out"
             exit 1
@@ -151,21 +167,36 @@ jobs:
           done
           valid=""
           for t in $changed; do
-            if grep -q 'DM3Q_GZIF_UNSUPPORTED_TARGET' "src/targets/$t/target.h"; then
-              echo "$t carries the unsupported-target gate; covered by the gate assertion step"
+            # Probe the header instead of grepping it: a target whose header
+            # merely *mentions* the gate marker in a comment is NOT skipped.
+            probe=$(gcc -fsyntax-only -x c-header -Isrc "-DTARGET_HEADER=\"targets/$t/target.h\"" src/offset.h 2>&1 || true)
+            if printf '%s\n' "$probe" | grep -q 'DM3Q_GZIF_UNSUPPORTED_TARGET'; then
+              echo "$t: unsupported gate, skipping build (covered by the gate assertion step for dm3q-S9180ZHU8GZIF)"
             else
               valid="$valid $t"
             fi
           done
-          if [ -z "${valid// /}" ]; then
-            echo 'no buildable changed served targets (the one changed target carries the unsupported-target gate)'
+          # Canary for shared sources: this PR changes src/shared code without
+          # changing any served target.h (exactly the PR #1 shape), so building
+          # only changed target.h files would compile nothing. Always build the
+          # reference served target in that case. (The push-only Exploit
+          # workflow builds all served targets post-merge; this catches the
+          # failure pre-merge.)
+          src_changed=$(git diff --name-only "origin/$BASE_REF...HEAD" -- 'src/**' 'Makefile' | head -1)
+          canary=""
+          if [ -n "$src_changed" ]; then
+            canary=pa3q-S938NKSUACZF1
+          fi
+          if [ -z "${valid// /}" ] && [ -z "$canary" ]; then
+            echo 'nothing to build (no changed served targets, no src/** changes)'
             exit 0
           fi
           echo "changed served-target headers (buildable):$valid"
+          [ -n "$canary" ] && echo "canary (shared-source changes): $canary"
           curl -fsSLo /tmp/ndk.zip "https://dl.google.com/android/repository/android-ndk-r28c-linux.zip"
           unzip -q /tmp/ndk.zip -d /tmp
           export ANDROID_NDK_HOME=/tmp/android-ndk-r28c
-          for t in $valid; do
+          for t in $valid $canary; do
             test -f "src/targets/$t/target.h"
             make TARGET="$t" all
             recipe=$(make -s TARGET="$t" info | sed -n 's/^APP_PUBLISH_RECIPE=//p' | sed 's/^[[:space:]]*//')
