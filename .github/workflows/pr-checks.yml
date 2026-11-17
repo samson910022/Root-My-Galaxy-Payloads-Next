@@ -1,0 +1,175 @@
+name: PR checks
+
+# A PR gets no CI from the Exploit workflow (push-only) and nothing else compiles
+# `src/targets/*` at all. This workflow is the non-publishing gate: it never
+# commits, never points the feed anywhere, and holds a read-only token. It checks
+#   1. the forced-offset grid unit test (host, two configurations);
+#   2. every committed P0 fingerprint table for fully-duplicated rows;
+#   3. the feed files parse, plus the invariants this PR's history depends on;
+#   4. the explicitly unsupported targets refuse to build (contract assertion);
+#   5. served targets whose target.h changed in this PR still build.
+#
+# Anything that needs a device is out of scope here, by definition: build success
+# never implies hardware validation.
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tools/**'
+      - 'Makefile'
+      - 'support/**'
+      - 'artifacts/**'
+      - '.github/workflows/**'
+      - 'docs/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-checks:
+    name: pr-checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Forced-offset grid unit test (default and GZIF 0x8000 grid)
+        run: |
+          gcc -Isrc -Wall -Wextra -Werror -o /tmp/offsetcheck tools/test_slide_offset_check.c
+          /tmp/offsetcheck
+          gcc -Isrc -DSLIDE_P0_FORCE_ALIGN=0x8000ULL -DSLIDE_P0_FORCE_MAX=0x1f8000ULL \
+              -Wall -Wextra -Werror -o /tmp/offsetcheck-gzif tools/test_slide_offset_check.c
+          /tmp/offsetcheck-gzif
+
+      - name: P0 fingerprint tables audit (fail on fully-duplicated rows)
+        run: |
+          set -eu
+          shopt -s nullglob
+          tables=(src/targets/*/p0_fingerprint.h)
+          if [ "${#tables[@]}" -eq 0 ]; then
+            echo '::error::no fingerprint tables found'
+            exit 1
+          fi
+          echo "auditing ${#tables[@]} committed fingerprint tables"
+          for h in "${tables[@]}"; do
+            echo "== $h"
+            python3 tools/p0_fingerprint_audit.py "$h" --fail-at 8
+          done
+
+      - name: Feed files parse; PR-critical invariants hold
+        # The S938N/6.6.98 mapping is the tripwire recorded in
+        # docs/FEED_COMPAT_CHECKLIST.md (Phase 3/Phase 6 addenda): a PR that
+        # deliberately registers SM-S938N standalone in v3 fails here on purpose.
+        run: |
+          python3 - <<'PY'
+          import json, os, hashlib
+          d2 = json.load(open('support/targets-v2.json'))  # step name promises both feed files parse
+          d3 = json.load(open('support/targets-v3.json'))
+          assert d3.get('schemaVersion') == 3, 'v3 schemaVersion'
+          # PR #1 disposition: SM-S938N/6.6.98 is served only by the shared entry.
+          matches = [p['payloadId'] for p in d3['payloads']
+                     if 'SM-S938N' in p.get('models', []) and '6.6.98' in p.get('kernelVersions', [])]
+          assert matches == ['galaxy-s25-series-2026-06-07'], f'unexpected SM-S938N v3 matches: {matches}'
+          ids = [p['payloadId'] for p in d3['payloads']]
+          assert len(ids) == len(set(ids)), 'duplicate payloadId in v3 feed'
+          assert 'pa3q-S938NKSUACZF1' not in ids, 'standalone ACZF1 entry must not be registered'
+          # On-disk files referenced by this repository's own entries exist at
+          # the declared size — and, where the entry pins one, at the declared
+          # sha256. Foreign URLs are never fetched in CI by policy.
+          for p in d3['payloads']:
+              payload = json.dumps(p.get('payloadId'))
+              for kind in ('exploit', 'kernelsu'):
+                  obj = p.get(kind, {})
+                  assert isinstance(obj, dict), f'{payload}: {kind}: not an object'
+                  url = obj.get('url', '')
+                  if 'Root-My-Galaxy-Payloads-Next' not in url:
+                      continue
+                  parts = url.split('/main/', 1)
+                  assert len(parts) == 2, f'{payload}: {kind}: unparseable this-repo URL {url!r}'
+                  rel = os.path.normpath(parts[1])
+                  root = os.path.realpath('.')
+                  path = os.path.realpath(os.path.join(root, rel))
+                  assert os.path.commonpath((root, path)) == root, f'{payload}: {kind}: path escapes repo: {json.dumps(rel)}'
+                  assert rel.split('/')[0] in ('artifacts', 'kernelsu'), f'{payload}: {kind}: this-repo URL outside artifacts/ and kernelsu/: {json.dumps(rel)}'
+                  assert os.path.isfile(path), f'missing file for {payload} {kind}: {json.dumps(path)}'
+                  assert os.path.getsize(path) == obj['size'], f'size mismatch for {json.dumps(path)}'
+                  if obj.get('sha256'):
+                      digest = hashlib.sha256(open(path, 'rb').read()).hexdigest()
+                      assert digest == obj['sha256'], f'sha256 mismatch for {json.dumps(path)}'
+          print('feed invariants OK')
+          PY
+
+      - name: Unsupported targets refuse to build (contract assertion)
+        run: |
+          set -eu
+          set +e
+          gate_out=$(gcc -fsyntax-only -x c-header -Isrc \
+              -DTARGET_HEADER='"targets/dm3q-S9180ZHU8GZIF/target.h"' src/offset.h 2>&1)
+          gate_status=$?
+          set -e
+          if [ "$gate_status" -eq 0 ]; then
+            echo '::error::dm3q-S9180ZHU8GZIF passes preprocessing — the unsupported-target gate is missing or broken'
+            exit 1
+          fi
+          if ! printf '%s\n' "$gate_out" | grep -q 'DM3Q_GZIF_UNSUPPORTED_TARGET'; then
+            echo '::error::dm3q-S9180ZHU8GZIF fails, but not on the unsupported-target gate:'
+            printf '%s\n' "$gate_out"
+            exit 1
+          fi
+          if ! printf '%s\n' "$gate_out" | grep -q '#error'; then
+            echo '::error::gate message lost its #error tag:'
+            printf '%s\n' "$gate_out"
+            exit 1
+          fi
+          echo 'unsupported-target gate fires as designed'
+
+      - name: Changed served targets still build
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          set -f
+          # Compute the change set inline: filenames come from this PR, so every
+          # token is validated against a strict allowlist before use, and the
+          # value never passes through a GITHUB_OUTPUT round-trip. Pure-dot
+          # tokens are rejected separately; the allowlist then permits only
+          # alnum, '.', '_', '-'.
+          changed=$(git diff --name-only "origin/$BASE_REF...HEAD" -- 'src/targets/*/target.h' \
+                    | xargs -r -n1 dirname | sed 's|src/targets/||' | sort -u)
+          for t in $changed; do
+            if ! [[ "$t" =~ ^[A-Za-z0-9._-]+$ ]] || [[ "$t" =~ ^\.+$ ]]; then
+              echo "::error::invalid target token: $(printf '%s' "$t" | tr -d '[:cntrl:]')"
+              exit 1
+            fi
+          done
+          valid=""
+          for t in $changed; do
+            if grep -q 'DM3Q_GZIF_UNSUPPORTED_TARGET' "src/targets/$t/target.h"; then
+              echo "$t carries the unsupported-target gate; covered by the gate assertion step"
+            else
+              valid="$valid $t"
+            fi
+          done
+          if [ -z "${valid// /}" ]; then
+            echo 'no buildable changed served targets (the one changed target carries the unsupported-target gate)'
+            exit 0
+          fi
+          echo "changed served-target headers (buildable):$valid"
+          curl -fsSLo /tmp/ndk.zip "https://dl.google.com/android/repository/android-ndk-r28c-linux.zip"
+          unzip -q /tmp/ndk.zip -d /tmp
+          export ANDROID_NDK_HOME=/tmp/android-ndk-r28c
+          for t in $valid; do
+            test -f "src/targets/$t/target.h"
+            make TARGET="$t" all
+            recipe=$(make -s TARGET="$t" info | sed -n 's/^APP_PUBLISH_RECIPE=//p' | sed 's/^[[:space:]]*//')
+            if [ -n "$recipe" ]; then
+              make TARGET="$t" "$recipe"
+            fi
+          done
