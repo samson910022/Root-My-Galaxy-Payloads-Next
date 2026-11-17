@@ -79,7 +79,7 @@ Optional/common fields observed:
 | Field | Value / decision |
 |---|---|
 | `payloadId` | `e1q-S9210ZHU6EZIF` |
-| `displayName` | `Galaxy S24 (SM-S9210) | S9210ZHU6EZIF (CANDIDATE/EXPERIMENTAL) | Kernel 6.1.162` (explicit candidate signaling in human-readable label; **no schema field added**) |
+| `displayName` | `Galaxy S24 (SM-S9210) \| S9210ZHU6EZIF (CANDIDATE/EXPERIMENTAL) \| Kernel 6.1.162` (explicit candidate signaling in human-readable label; **no schema field added**) |
 | `models` | `["SM-S9210"]` |
 | `kernelVersions` | `["6.1.162"]` (matches target firmware/kernel family as documented) |
 | `exploit.url` | `https://raw.githubusercontent.com/samson910022/Root-My-Galaxy-Payloads-Next/main/artifacts/e1q-S9210ZHU6EZIF/cve-2026-43499-app.so` |
@@ -184,7 +184,8 @@ addendum are scoped to `support/targets-v3.json`.
 `tools/update_feed.py` rejects only exact
 `(flavor, tuple(models), tuple(kernelVersions))` duplicates; a model-subset
 entry (`["SM-S938N"]`) vs the 30-model series entry is **not** caught — the
-same class as the pre-existing `(SM-S938U1, 6.6.98)` collision listed above.
+same class as the pre-existing `(SM-S938U1, 6.6.98)` collision listed in the
+Checks section below.
 Candidate follow-ups: (a) extend the guard to flag model-subset overlaps
 (warn or `--strict`); (b) decide the `(SM-S938U1, 6.6.98)` collision
 resolution with the `pa3q-S938USQSCCZF9` profile owners (upstream PR #18);

@@ -8,7 +8,8 @@
 // release 6.6.98-android15-8-pd6ff1cd-abogkiS938NKSUACZF1-4k) is NOT recorded
 // anywhere in this repository and is absent from this working tree, so the
 // source bytes cannot be re-verified here. The table was added wholesale in
-// commit ca20540 and never modified since; the word for slide 0x0c0000 in
+// commit ca20540; its rows were never modified since (a later commit added only
+// these comments); the word for slide 0x0c0000 in
 // particular must not be "corrected" against any other build. A replacement
 // word (913e0021d000b321 at 0x0c0000) carried by closed upstream PR #1 was
 // byte-identical to the word at slide 0x0c0000 in the pa3q-S938USQSCCZF9
