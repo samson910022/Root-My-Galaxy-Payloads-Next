@@ -283,3 +283,20 @@ done
 No feed entry was added, removed, or repointed; `pa3q-S938NKSUACZF1` remains
 unregistered in v3 and the shared entry remains the only v3 match for
 (SM-S938N, 6.6.98).
+
+### Note (2026-11-18) — served FZG1/S918B/gts9u artifacts are stale relative to source
+
+The `SLIDE_P0_FORCE_*` opt-in (and pre-existing history) means the committed
+served artifacts do not reproduce from current source. A reviewer-measured
+pass (2026-11-18, final comprehensive review) built `dm3q-S9180ZHS8FZG1` at
+`e3a578d` (`491db98…`, 139024 B), at `5fbc066` (`092c0a6…`) and at `dc26562`
+(`f315ee…`, size 139008) and found no tree build matching the committed
+`artifacts/dm3q-S9180ZHS8FZG1/cve-2026-43499-app.so` (137544 B); the same
+class of drift applies to S918BXXSAFZF5 (`43d0c2…` → `c9c987…`) and to the
+(currently unserved) gts9u (`5b398e…` → `a1bd50…`). Nothing about the feed
+pair (artifact, pin) changed: the pin binds the served bytes, and CI
+verifies file↔pin. But the served FZG1 artifact **does not correspond to
+any build of the current source** — it needs a rebuild + republish (Exploit
+workflow dispatch) or an explicit owner note, which is a publishing decision,
+not something to do silently. Owner to decide; recorded here rather than
+resolved.

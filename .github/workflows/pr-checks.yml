@@ -152,6 +152,7 @@ jobs:
         run: |
           set -eu
           set -f
+          set -o pipefail
           # Compute the change set inline: filenames come from this PR, so every
           # token is validated against a strict allowlist before use, and the
           # value never passes through a GITHUB_OUTPUT round-trip. Pure-dot
