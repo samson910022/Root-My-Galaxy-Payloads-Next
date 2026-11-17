@@ -1,3 +1,23 @@
+// P0 FINGERPRINT TABLE (provenance UNVERIFIED - see below) - do not edit rows by hand.
+// Each row maps the runtime slide at 0x<slide> to the 8 little-endian
+// qwords at Image[0x1f0000 - slide + {0x000,0x200,...,0xe00}] of "the exact
+// raw Image" (tools/generate_p0_fingerprint.pl, stride 0x10000, 32 rows).
+//
+// Provenance caveat (recorded 2026-11-18; see docs/SM-S938N-S938NKSUACZF1.md):
+// the raw S938NKSUACZF1 Image (size / SHA-256 / retrieval date; kernel
+// release 6.6.98-android15-8-pd6ff1cd-abogkiS938NKSUACZF1-4k) is NOT recorded
+// anywhere in this repository and is absent from this working tree, so the
+// source bytes cannot be re-verified here. The table was added wholesale in
+// commit ca20540; its rows were never modified since (a later commit added only
+// these comments); the word for slide 0x0c0000 in
+// particular must not be "corrected" against any other build. A replacement
+// word (913e0021d000b321 at 0x0c0000) carried by closed upstream PR #1 was
+// byte-identical to the word at slide 0x0c0000 in the pa3q-S938USQSCCZF9
+// profile's table (commit e6e5092; unmerged device-port/pa3q-S938USQSCCZF9
+// branch, SM-S938U1/SCCZF9, absent from this working tree - the two 256-qword
+// tables differ in exactly that one word) and was rejected; this file keeps
+// 913dc821d000b321. Re-derive the whole table from the pinned S938NKSUACZF1
+// Image before touching any row.
 #ifndef P0_FINGERPRINT_H
 #define P0_FINGERPRINT_H
 

