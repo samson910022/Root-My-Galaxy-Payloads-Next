@@ -121,6 +121,8 @@ payload project (offsets→layout→spray→hardware validation).
 
 ## 6.5 Hardware verification log (2026-11-17, GZIF unit attached — serial intentionally withheld)
 
+> Privacy-safe evidence manifest for the whole campaign: `docs/GZIF-evidence-manifest-20261117.md`.
+
 Device identity: `uname -a` (from the attached unit) = `5.15.197-android13-8-34343818-abS9180ZHU8GZIF #1 SMP PREEMPT Mon Sep 28 06:37:13 UTC 2026`, SPL 2026-10-05, Android 17 / One UI 9.0, arm64, SELinux Enforcing at capture time, shell `u:r:shell:s0`. The firmware SYSTEM image carries `ro.system.build.fingerprint=samsung/dm3qzhx/qssi:17/CP2A.260605.016/S9180ZHU8GZIF:user/release-keys` (`fota/SYSTEM_build.prop`, verified). An earlier session transcript transcribed the fingerprint with a `…/dm3q:17/…` component; no retained artifact shows that string — the firmware-verified value is `qssi:17`, and the on-device `getprop ro.build.fingerprint` output was not re-checked against a retained capture. Treat the `dm3q:17` form as a transcription error.
 
 - `build/dm3q_gzif_preflight` (read-only) pushed to `/data/local/tmp/` and run **(session transcript, not retained)**:
@@ -280,7 +282,7 @@ Both root modes are now available in the same APK:
 ## 7. Next steps (if the user wants to proceed)
 
 1. 98260 stays parked unless 43284 fails.
-2. Upstream engagement: notify `diabl0w/DFRoot` of the GZIF port (courtesy, and for provenance hygiene — see `docs/research/gzif-port-review-20261117.md`).
+2. Upstream engagement: notify `diabl0w/DFRoot` of the GZIF port (courtesy, and for provenance hygiene — see `docs/research/gzif-port-review-20261117.md`, whose top banner marks it HISTORICAL/SUPERSEDED as of 2026-11-18).
 3. Artifact hygiene: rebuild `dfroot-android13-5.15.ko` against the exact GZIF target KMI before any wider release; consider rebuilding ksud with `RUSTFLAGS="--remap-path-prefix=$HOME=/build"` so shipped binaries carry no build-host paths.
 4. Keep `support/targets-v3.json` untouched until a feed decision is made with hardware-proven artifacts and an explicit signed risk review — GZIF is intentionally absent today.
 5. Hardening / measurement debt: exploit-stage RKP/KDP behaviour (fake creds, block CBC staging, late-load) remains unmeasured on this build; any public support claim requires repeat-run stability data from the GZIF unit.

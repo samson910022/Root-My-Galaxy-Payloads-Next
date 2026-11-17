@@ -2,6 +2,7 @@
 
 Status: **hardware-validated root via DFRoot + Samsung-patched KernelSU (classic and Next). Volatile (late-load) root only; not boot-persistent; no One UI 9 upstream support yet.**
 Primary record: `docs/SM-S9180-S9180ZHU8GZIF.md` (§6.5–6.8). Unit serial intentionally withheld. No `boot.img` flash was performed at any stage.
+Evidence manifest: `docs/GZIF-evidence-manifest-20261117.md` (privacy-safe hashes/identities for the firmware, fork, loaders, and runs; author-attested, not independently re-verified).
 
 ## 1. Firmware identity (device-confirmed 2026-11-17)
 

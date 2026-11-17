@@ -1,5 +1,29 @@
 # GZIF port review — 2026-11-17
 
+> **HISTORICAL / SUPERSEDED — read this first.**
+> This review is a point-in-time snapshot (2026-11-17 ~18:10 local) taken
+> *before* the GZIF docs were scrubbed and committed to this repository and
+> before the DFRoot GZIF fork was cleaned and published. Its "do not push"
+> verdict applied to the unredacted state examined here; it is not a statement
+> about the current state of either repository.
+>
+> What landed since (both verified 2026-11-18):
+>
+> - this repository: the GZIF docs are committed with device identifiers
+>   withheld and un-retained evidence labeled session-attested; the current
+>   state lives in `docs/SM-S9180-S9180ZHU8GZIF.md` (campaign record) and
+>   `docs/GZIF-validation-summary-20261117.md`.
+> - fork: `samson910022/DFRoot-GZIF` (master `bd8f814`, 2026-11-17), now
+>   carrying `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`,
+>   `PORTING-GZIF.md`, and `CHANGELOG.md`. This repository carries the
+>   campaign's provenance manifest at
+>   `docs/GZIF-evidence-manifest-20261117.md`.
+>
+> The checklist and verdicts below are retained for the record. Where they
+> name defects, treat each item as open unless it is recorded as fixed in the
+> two docs above or in the fork. The PII-scan item was corrected in place — the
+> original example regex matched only this file's own redaction placeholders.
+
 Read-only review of the GZIF (SM-S9180 / S9180ZHU8GZIF) port artifacts and candidate docs.
 Nothing outside this file was created, edited, moved, or deleted. No `adb` was run, no git
 operation was performed on any repository. All citations are `file:line` against the working
@@ -248,7 +272,7 @@ Do these in order; stop at the first failure and fix it.
 6. **Add the legal layer** (§5.L5): NOTICE/THIRD_PARTY_NOTICES (upstream baseline, loader binaries + their licence split, source offer, aggregation statement), CHANGELOG with the 8 diffs, GPL-2.0 §2(a) per-file notices, bump `versionCode`/`versionName`.
 7. **Attribution & honesty in README**: keep upstream credits; add "DFRoot FZG1 (Samsung S9180 GZIF build)" section; state exactly what was tested (S9180 GZIF only; run6 classic + run8 Next evidence; stock kernels panic at `init_module` — do not ship stock loaders); mark everything else untested; **do not** claim support for any other build.
 8. **Signing hygiene**: never ship the `SIGN_PASS := df-ksu` default in a public release; create your own keystore (do it outside the repo); `signing.properties` must never be tracked (it is gitignored — keep it so). CI (`build.yml`) already expects `KEYSTORE` secret — fine; keep the workflow but review whether to keep the `df-ksu` fallback for local `make` runs (change it to require explicit `SIGN_PASS`/`SIGN_ALIAS` env or fail otherwise).
-9. **PII/secret scan on the final tree**: `grep -rnE '<SERIAL>|<SSID>|<LAN-IP>|<name-zh>|<account-id>|ims\.taiwanmobile|<mail>' .` must be empty; same scan on any commit you make to the payloads repo (the four docs there carry the serial today — fix them first). Also scan for keystores/tokens (`grep -riE 'KEYSTORE_PASSWORD|BEGIN .*PRIVATE KEY|ghp_|AIza' .`).
+9. **PII/secret scan on the final tree**: do NOT use a placeholder-matching grep (`grep -E '<SERIAL>|<SSID>|<LAN-IP>|<name-zh>|<account-id>|ims\.taiwanmobile|<mail>' .`) — it matches only the redaction placeholders used in this file, so an empty result proves nothing (and this document's own text demonstrates the false assurance). Use a real scanner instead — `gitleaks detect --source .` or `trufflehog filesystem .` — plus regexes that match actual device data you must exclude (e.g. `\b\d{15}\b` for IMEIs, the literal serial from `getprop ro.serialno`, email addresses, IPv4/IPv6 addresses), plus manual review of every committed hunk. Also scan for keystores/tokens: `grep -riE 'KEYSTORE_PASSWORD|BEGIN .*PRIVATE KEY|ghp_[0-9A-Za-z]{36}|AIza[0-9A-Za-z_-]{35}' .`
 10. **Commit identity**: if you publish commits, either accept your GitHub identity in them or set `git config user.name/user.email` to a noreply address; check `git log --format='%an <%ae>'` before pushing. (`redzrush101@users.noreply.github.com` is fine; your choice.)
 11. **BFG/filter check**: since the jniLibs and `lkm/dfroot.ko` would be the only "new large blobs", they are intentional — but if you ever pushed a private artifact by accident, remove it from history (`git filter-repo`), not just with a later commit.
 12. **License-consistency check on the aggregate**: state explicitly in README that DFRoot source = GPL-2.0-only; bundled/executable components = their own licences (kernel GPL-2.0-only; userspace GPL-3.0-or-later); repo artifacts (this payloads repo) ship under Apache-2.0 except `susfs/*` (GPL-2.0-only, already marked) and the ksud binaries (their own licences). Do not let the Apache-2.0 top-level LICENSE be read as covering the kernel/userspace binaries.
