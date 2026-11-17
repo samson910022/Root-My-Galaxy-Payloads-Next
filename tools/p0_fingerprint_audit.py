@@ -50,6 +50,12 @@ import sys
 ROW_RE = re.compile(r"\{\s*0x([0-9a-fA-F]+)ULL\s*,\s*\{([^}]*)\}\s*\}")
 QWORD_RE = re.compile(r"0x([0-9a-fA-F]+)ULL")
 
+_GH_PROP = str.maketrans({'%': '%25', '\r': ' ', '\n': ' ', ':': '%3A', ',': '%2C'})
+
+
+def _gh_prop(value):
+    return str(value).translate(_GH_PROP)
+
 NOP_QWORD = 0xd503201fd503201f  # two aarch64 NOPs packed little-endian
 
 
@@ -57,7 +63,7 @@ def load_table(path):
     try:
         text = open(path).read()
     except OSError as e:
-        sys.exit(f"error: cannot read {path}: {e.strerror}")
+        sys.exit(f"error: cannot read {_gh_prop(path)}: {_gh_prop(e.strerror or '')}")
     rows = []
     for m in ROW_RE.finditer(text):
         slide = int(m.group(1), 16)
@@ -147,7 +153,7 @@ def main():
     print(f"\nweak pairs (>= {args.warn_at} equal qwords): {len(weak)}")
     if args.github:
         for eq, a, b in weak:
-            print(f"::warning file={args.p0_fingerprint_h},title=Weak P0 fingerprint pair::0x{a:06x} vs 0x{b:06x} agree in {eq}/{width} qwords")
+            print(f"::warning file={_gh_prop(args.p0_fingerprint_h)},title=Weak P0 fingerprint pair::0x{a:06x} vs 0x{b:06x} agree in {eq}/{width} qwords")
 
     # Single-word corruption model: a lone qword read is flipped to 0x0 (a
     # representative misread). For each row and each corruptible position,

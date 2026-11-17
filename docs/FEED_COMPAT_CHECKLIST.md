@@ -300,3 +300,21 @@ any build of the current source** — it needs a rebuild + republish (Exploit
 workflow dispatch) or an explicit owner note, which is a publishing decision,
 not something to do silently. Owner to decide; recorded here rather than
 resolved.
+
+### CI hardening note (2026-11-18, second pass) — feed invariants now verify all five feeds
+
+`.github/workflows/pr-checks.yml`'s feed-invariant step no longer checks only
+this repository's URLs. Every feed URL is classified by lineage:
+
+- **OURS** (this repository + the rushiranpise upstream fork): the served
+  bytes ARE this tree's bytes (re-verified for every entry on 2026-11-18 —
+  **150 entries pass existence + size + declared sha256**).
+- **FOREIGN** (the legacy BuSung-dev fork — v2's legacy catalog plus the four
+  `ksud-s25u-kdp` references in v3; its bytes differ from this tree except
+  `ksud-s25u-kdp`, which is byte-identical today by explicit re-verification,
+  but classified foreign by lineage): structural checks only (URL shape,
+  realpath containment, top-level `artifacts/`/`kernelsu/`/`susfs/`); no byte
+  comparison is claimed (**16 entries**).
+- anything else fails the gate. Foreign URLs are still never *fetched* in CI
+  by policy — but this tree carries the rushiranpise lineage, so its feeds
+  are fully verified against it.

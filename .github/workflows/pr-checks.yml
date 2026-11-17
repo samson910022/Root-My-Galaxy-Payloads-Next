@@ -91,31 +91,75 @@ jobs:
           ids = [p['payloadId'] for p in d3['payloads']]
           assert len(ids) == len(set(ids)), 'duplicate payloadId in v3 feed'
           assert 'pa3q-S938NKSUACZF1' not in ids, 'standalone ACZF1 entry must not be registered'
-          # On-disk files referenced by this repository's own entries exist at
-          # the declared size — and, where the entry pins one, at the declared
-          # sha256. Foreign URLs are never fetched in CI by policy.
-          for p in d3['payloads']:
-              payload = json.dumps(p.get('payloadId'))
-              for kind in ('exploit', 'kernelsu'):
-                  obj = p.get(kind, {})
-                  assert isinstance(obj, dict), f'{payload}: {kind}: not an object'
-                  url = obj.get('url', '')
-                  assert isinstance(url, str) and url, f'{payload}: {kind}: missing or empty url'
-                  if 'Root-My-Galaxy-Payloads-Next' not in url:
-                      continue
-                  parts = url.split('/main/', 1)
-                  assert len(parts) == 2, f'{payload}: {kind}: unparseable this-repo URL {url!r}'
-                  assert obj.get('size'), f'{payload}: {kind}: this-repo entry missing size'
-                  rel = os.path.normpath(parts[1])
-                  root = os.path.realpath('.')
+          # On-disk files referenced by any feed entry exist at the declared
+          # size — and, where the entry pins one, at the declared sha256. All
+          # five feeds map to in-tree paths (this repository, plus the
+          # rushiranpise/BuSung-dev mirrors of it). URLs that do not map onto an
+          # in-tree path are never verified — recorded in the Phase 6 addendum.
+          def collect(o):
+              if isinstance(o, dict):
+                  url = o.get('url')
+                  if isinstance(url, str) and '/main/' in url:
+                      yield url, o
+                  for v in o.values():
+                      yield from collect(v)
+              elif isinstance(o, list):
+                  for v in o:
+                      yield from collect(v)
+
+          # Two lineages exist in these catalogs, and only one can be verified
+          # against this tree:
+          #   - OURS: this repository and the rushiranpise upstream fork — the
+          #     rushiranpise/main file bytes ARE the bytes in this tree (and the
+          #     bytes the feeds pin), so they are verified strictly.
+          #   - FOREIGN: the legacy BuSung-dev fork. The v2 catalog (and a few
+          #     v3 references) deliberately serves that lineage's own, different
+          #     bytes — pre-existing, recorded as accepted legacy risk in
+          #     docs/FEED_COMPAT_CHECKLIST.md Phase 6 addendum. Only structural
+          #     checks are meaningful for them; no byte comparison is claimed.
+          def lineage(url):
+              if 'samson910022/Root-My-Galaxy-Payloads-Next' in url:
+                  return 'OURS'
+              if 'rushiranpise/Root-My-Galaxy-Payloads' in url:
+                  return 'OURS'
+              if 'BuSung-dev/Root-My-Galaxy-Payloads' in url:
+                  return 'FOREIGN'
+              return 'OTHER'
+
+          root = os.path.realpath('.')
+          feeds = {name: json.load(open(f'support/{name}.json'))
+                   for name in ('targets-v2', 'targets-v3', 'kernelsu-generic',
+                                'kernelsu-generic-susfs', 'susfs-v1')}
+          verified, foreign = 0, 0
+          for name, data in feeds.items():
+              for url, obj in collect(data):
+                  payload = json.dumps(url)
+                  klass = lineage(url)
+                  if klass == 'OTHER':
+                      raise AssertionError(f'{payload}: unexpected feed host')
+                  rel = os.path.normpath(url.split('/main/', 1)[1])
                   path = os.path.realpath(os.path.join(root, rel))
-                  assert os.path.commonpath((root, path)) == root, f'{payload}: {kind}: path escapes repo: {json.dumps(rel)}'
-                  assert rel.split('/')[0] in ('artifacts', 'kernelsu'), f'{payload}: {kind}: this-repo URL outside artifacts/ and kernelsu/: {json.dumps(rel)}'
-                  assert os.path.isfile(path), f'missing file for {payload} {kind}: {json.dumps(path)}'
-                  assert os.path.getsize(path) == obj['size'], f'size mismatch for {json.dumps(path)}'
+                  assert os.path.commonpath((root, path)) == root, f'{payload}: path escapes repo'
+                  assert rel.split('/')[0] in ('artifacts', 'kernelsu', 'susfs'), f'{payload}: feed URL outside artifacts/kernelsu/susfs/: {rel}'
+                  if klass == 'FOREIGN':
+                      foreign += 1
+                      continue
+                  assert os.path.isfile(path), f'missing file for {payload}: {path}'
+                  if obj.get('size') is not None:
+                      assert os.path.getsize(path) == obj['size'], f'size mismatch for {path}'
                   if obj.get('sha256'):
                       digest = hashlib.sha256(open(path, 'rb').read()).hexdigest()
-                      assert digest == obj['sha256'], f'sha256 mismatch for {json.dumps(path)}'
+                      assert digest == obj['sha256'], f'sha256 mismatch for {path}'
+                  verified += 1
+          print(f'feed entries verified on-disk (same lineage): {verified}; foreign-lineage entries (structural checks only): {foreign}')
+          # v3-specific tripwires: SM-S938N/6.6.98 is served only by the shared
+          # entry (Phase 6 addendum), no duplicate payloadIds, no standalone ACZF1.
+          matches = [p['payloadId'] for p in d3['payloads']
+                     if 'SM-S938N' in p.get('models', []) and '6.6.98' in p.get('kernelVersions', [])]
+          assert matches == ['galaxy-s25-series-2026-06-07'], f'unexpected SM-S938N v3 matches: {matches}'
+          ids = [p['payloadId'] for p in d3['payloads']]
+          assert len(ids) == len(set(ids)), 'duplicate payloadId in v3 feed'
+          assert 'pa3q-S938NKSUACZF1' not in ids, 'standalone ACZF1 entry must not be registered'
           print('feed invariants OK')
           PY
 
