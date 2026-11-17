@@ -1,19 +1,35 @@
 #!/usr/bin/env python3
 """p0_fingerprint_audit.py — pairwise discriminability audit for P0 fingerprint tables.
 
-A target's slide selector scores every committed fingerprint row by counting
+A target's slide selector scores, in a default build, every committed fingerprint row by counting
 exactly-equal qwords and rejects a best/runner-up tie (src/pipe.c). Two rows
 that agree in 7 of 8 qwords are one noisy/corrupted-word away from being
-indistinguishable on-device: the reading becomes a tie and is thrown away.
-This tool measures exactly that, offline, before a table is trusted.
+indistinguishable on-device. This tool measures exactly that, offline,
+before a table is trusted.
+
+Scope and model notes:
+- Models the DEFAULT scoring path (src/pipe.c: exact qword equality, accept
+  on best_score > second_score, reject on a tie). Targets built with
+  APP_S928_STABLE_RACE (the three e3q-S928 stable tables) score differently
+  (zero words ignored; best_score >= 4 and best_score*2 >= best_significant
+  required) — reported counts for those tables do not reflect on-device
+  scoring.
+- The single-corruption simulation flips ONE qword to 0x0 as a representative
+  misread. It captures the fail-closed class (tie => the reading is rejected)
+  and the strictly-beaten class (another row wins => pipe.c *silently accepts
+  the wrong slide*, not a rejection). It does not enumerate all 2^64
+  misread values; a misread that lands exactly on the sibling row's qword 0
+  is the fail-open edge.
 
 Usage:
-  python3 tools/p0_fingerprint_audit.py TARGET_HEADER_P0_FINGERPRINT_H [--fail-at N] [--top K]
+  python3 tools/p0_fingerprint_audit.py P0_FINGERPRINT_H [--fail-at N] [--top K] [--warn-at N]
 
 Defaults: --fail-at 8 (fail only on byte-identical rows; a 7/8 pair is reported
-as a WARNING), --top 8.
+as a WARNING), --top 8, --warn-at 7.
 
-Exit status: 0 unless any pair reaches --fail-at equal qwords (then 1).
+Exit status: 0 = audit ran and no pair reached --fail-at; 1 = a pair reached
+--fail-at, or the input could not be parsed/audited (message printed); 2 =
+usage error (out-of-range --fail-at).
 """
 import argparse
 import re
@@ -34,6 +50,8 @@ def load_table(path):
         rows.append((slide, words))
     if not rows:
         sys.exit(f"no fingerprint rows parsed from {path}")
+    if len(rows) < 2:
+        sys.exit(f"need at least 2 rows in {path}, got {len(rows)}")
     width = {len(w) for _, w in rows}
     if len(width) != 1:
         sys.exit(f"inconsistent word-count per row in {path}: {sorted(width)}")
@@ -49,8 +67,14 @@ def main():
     ap.add_argument("--warn-at", type=int, default=7,
                     help="equal-qword count reported as a weak pair (default 7)")
     args = ap.parse_args()
+    if args.fail_at < 1:
+        print("error: --fail-at must be >= 1", file=sys.stderr)
+        return 2
 
     rows, width = load_table(args.p0_fingerprint_h)
+    if args.fail_at > width:
+        print(f"error: --fail-at {args.fail_at} exceeds the table width ({width} qwords)", file=sys.stderr)
+        return 2
     n = len(rows)
     print(f"table: {args.p0_fingerprint_h}")
     print(f"rows: {n}, qwords per row: {width}")
@@ -73,30 +97,34 @@ def main():
     weak = [p for p in pairs if p[0] >= args.warn_at]
     print(f"\nweak pairs (>= {args.warn_at} equal qwords): {len(weak)}")
 
-    # Single-word corruption model: a lone qword read is flipped to 0x0 (or
-    # any value that cannot equal the committed one). For each row and each
-    # corruptible position, count how often the true row no longer wins
-    # outright against the corrupted table (the pipe.c tie rule throws the
-    # reading away).
-    print("\nsingle-corrupted-word ambiguity:")
-    total_losses, total_cases = 0, 0
+    # Single-word corruption model: a lone qword read is flipped to 0x0 (a
+    # representative misread). For each row and each corruptible position,
+    # the corrupted row now competes against all other rows. Two failure
+    # classes result:
+    #   tie    (true_score == others_best): pipe.c rejects on a best/runner-up
+    #          tie -> the reading is discarded (fail-closed);
+    #   beaten (true_score  < others_best): pipe.c silently accepts the WRONG
+    #          slide (fail-open).
+    print("\nsingle-corrupted-word ambiguity (flip qword to 0x0):")
+    total_tie, total_beaten, total_cases = 0, 0, 0
     for i, (slide, words) in enumerate(rows):
-        losses = 0
+        tie_losses, beaten_losses = 0, 0
         for pos in range(width):
             corrupted = list(words)
             corrupted[pos] = 0
             scores = [sum(1 for a, b in zip(corrupted, w) if a == b) for _, w in rows]
             true_score = scores[i]
             others_best = max(s for k, s in enumerate(scores) if k != i)
-            # pipe.c rejects the reading on a best/runner-up tie, so a row
-            # that only ties the best other row is unusable evidence.
-            if true_score <= others_best:
-                losses += 1
-        total_losses += losses
+            if true_score == others_best:
+                tie_losses += 1
+            elif true_score < others_best:
+                beaten_losses += 1
+        total_tie += tie_losses
+        total_beaten += beaten_losses
         total_cases += width
-        if losses:
-            print(f"  0x{slide:06x}: {losses}/{width} single-word corruptions make it ambiguous or unusable")
-    print(f"table-wide: {total_losses}/{total_cases} single-word corruptions leave the true row ambiguous")
+        if tie_losses or beaten_losses:
+            print(f"  0x{slide:06x}: {tie_losses} tie (reading rejected) + {beaten_losses} beaten (wrong slide accepted) / {width} corruptions")
+    print(f"table-wide: {total_tie} tie (discarded) + {total_beaten} beaten (silently wrong slide) / {total_cases} single-word corruptions")
 
     fails = [p for p in pairs if p[0] >= args.fail_at]
     print(f"\nverdict: {'FAIL' if fails else 'PASS'} (--fail-at {args.fail_at}); "
