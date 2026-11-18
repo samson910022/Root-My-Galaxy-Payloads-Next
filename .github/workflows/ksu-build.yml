@@ -32,6 +32,11 @@ on:
         required: false
         type: string
         default: ''
+      pair_no_patch_text:
+        description: 'Build the pair module with CONFIG_KSU_SAMSUNG_NO_PATCH_TEXT=y (the fail-closed variant that survived Samsung RKP/KDP hardware; the default pair variant for kernelsu-next is patch-text)'
+        required: false
+        type: boolean
+        default: false
       flavor:
         description: 'Which flavour to build'
         required: false
@@ -136,6 +141,11 @@ on:
         description: 'Entries this run moves off a shared daemon, comma separated'
         required: false
         default: ''
+      pair_no_patch_text:
+        description: 'Build the pair module with CONFIG_KSU_SAMSUNG_NO_PATCH_TEXT=y'
+        required: false
+        type: boolean
+        default: false
   push:
     # Only what changes the build. Documentation edits used to re-run this too, pulling four DDK
     # images to recompile an identical module; prose about the build is not the build.
@@ -535,7 +545,7 @@ jobs:
   # the import diff below, against the module that is already device-tested on the same kernel build.
   # ---------------------------------------------------------------------------------------------
   pair-module:
-    name: pair module (${{ inputs.flavor || 'kernelsu' }}, ${{ inputs.target_id }})
+    name: pair module (${{ inputs.flavor || 'kernelsu' }}, ${{ inputs.target_id }}, ${{ inputs.pair_no_patch_text && 'no-patch-text' || 'patch-text' }})
     # On a push there are no inputs at all, so this is the condition rather than the event name:
     # `inputs` is empty there and the pair is skipped, which is the behaviour the event check used
     # to provide, while a call and a dispatch both reach it with a target filled in.
@@ -612,6 +622,7 @@ jobs:
           CONFIG_KSU_SAMSUNG_RKP=y \
           CONFIG_KSU_SAMSUNG_DEFEX=y \
           ${{ env.FLAVOR_CONFIG }} \
+          ${{ inputs.pair_no_patch_text && 'CONFIG_KSU_SAMSUNG_NO_PATCH_TEXT=y' || '' }} \
           CC=clang make -j"$(nproc)" 2>&1 | tee /tmp/kbuild.log
 
           echo "=== vermagic must be the target's ==="
