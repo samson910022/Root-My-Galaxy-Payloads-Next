@@ -1473,7 +1473,7 @@ index 1a76dbd7..7f8ed68a 100644
 +    ksu_samsung_defex_sync_current();
  }
 diff --git a/userspace/ksud/src/late_load.rs b/userspace/ksud/src/late_load.rs
-index 5381571f..1dc640d0 100644
+index 5381571f..aa49bcae 100644
 --- a/userspace/ksud/src/late_load.rs
 +++ b/userspace/ksud/src/late_load.rs
 @@ -1,7 +1,7 @@
@@ -1497,7 +1497,7 @@ index 5381571f..1dc640d0 100644
  
 +    // Copy the daemon before loading the module changes this process's
 +    // security context. The remaining install steps require KernelSU policy.
-+    utils::stage_daemon_from("/data/local/tmp/.ksud-stage").context("Failed to stage ksud")?;
++    utils::stage_daemon_from(defs::KSUD_STAGE_PATH).context("Failed to stage ksud")?;
 +
      // 1. Check if KernelSU is already loaded
      if ksuinit::has_kernelsu() {
@@ -1529,31 +1529,26 @@ index 5381571f..1dc640d0 100644
      Ok(())
  }
 diff --git a/userspace/ksud/src/utils.rs b/userspace/ksud/src/utils.rs
-index 9365663c..f4631abe 100644
+index 9365663c..e1c2c751 100644
 --- a/userspace/ksud/src/utils.rs
 +++ b/userspace/ksud/src/utils.rs
 @@ -1,7 +1,8 @@
  use anyhow::{Context, Error, Ok, Result, bail};
 -use rustix::fs::{Mode, OFlags, open};
-+use rustix::fs::{Mode, OFlags, chown, open};
++use rustix::fs::{FileType, Mode, OFlags, chown, fstat, open, openat};
  use rustix::process::setpgid;
  use rustix::stdio::{dup2_stderr, dup2_stdin, dup2_stdout};
 +use rustix::thread::{Gid, Uid};
  use std::{
      ffi::{CStr, CString, c_char, c_void},
      fs::{File, OpenOptions, create_dir_all, remove_file, write},
-@@ -228,13 +229,42 @@ fn link_ksud_to_bin() -> Result<()> {
+@@ -228,13 +229,118 @@ fn link_ksud_to_bin() -> Result<()> {
      Ok(())
  }
  
 -pub fn install(libadbroot: Option<PathBuf>) -> Result<()> {
 +pub fn stage_daemon() -> Result<()> {
-     ensure_dir_exists(defs::ADB_DIR)?;
--    let _ = std::fs::remove_file(defs::DAEMON_PATH);
--    std::fs::copy(
--        std::env::current_exe().with_context(|| "Failed to get self exe path")?,
--        defs::DAEMON_PATH,
--    )?;
++    ensure_dir_exists(defs::ADB_DIR)?;
 +
 +    let current_exe = std::env::current_exe().with_context(|| "Failed to get self exe path")?;
 +    if current_exe == Path::new(defs::DAEMON_PATH) {
@@ -1570,14 +1565,95 @@ index 9365663c..f4631abe 100644
 +    Ok(())
 +}
 +
++/// Promote the root-owned staged daemon onto the daemon path.
++///
++/// The stage lives in `/data/adb` rather than a shell-writable directory, and
++/// is validated before the rename: fixed path, trusted directory fd,
++/// root-owned non-writable regular file, and identity with the running
++/// executable. Every failed check returns an error and leaves the old daemon
++/// untouched.
 +pub fn stage_daemon_from(staged_exe: impl AsRef<Path>) -> Result<()> {
-+    ensure_dir_exists(defs::ADB_DIR)?;
++    let staged_exe = staged_exe.as_ref();
++    if staged_exe != Path::new(defs::KSUD_STAGE_PATH) {
++        bail!("Refusing to stage daemon from an unexpected path");
++    }
 +
-+    std::fs::rename(staged_exe.as_ref(), defs::DAEMON_PATH).with_context(|| {
+     ensure_dir_exists(defs::ADB_DIR)?;
+-    let _ = std::fs::remove_file(defs::DAEMON_PATH);
+-    std::fs::copy(
+-        std::env::current_exe().with_context(|| "Failed to get self exe path")?,
+-        defs::DAEMON_PATH,
+-    )?;
++
++    // Anchor every lookup on a fd for the staging directory. O_NOFOLLOW keeps
++    // a symlinked /data/adb out of the picture, and the mode check rejects a
++    // directory that group or other can write into.
++    let stage_dir = open(
++        defs::ADB_DIR,
++        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
++        Mode::empty(),
++    )
++    .with_context(|| format!("Failed to open {}", defs::ADB_DIR))?;
++    let dir_stat = fstat(&stage_dir).with_context(|| "Failed to stat staging directory")?;
++    if dir_stat.st_uid != 0
++        || !FileType::from_raw_mode(dir_stat.st_mode).is_dir()
++        || (dir_stat.st_mode & 0o022) != 0
++    {
++        bail!("Unsafe daemon staging directory");
++    }
++
++    // Resolve the stage name relative to that validated directory fd, never
++    // through a caller-supplied path.
++    let staged = openat(
++        &stage_dir,
++        ".ksud-stage",
++        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
++        Mode::empty(),
++    )
++    .with_context(|| "Failed to open staged daemon")?;
++    let staged_stat = fstat(&staged).with_context(|| "Failed to stat staged daemon")?;
++    if staged_stat.st_uid != 0
++        || !FileType::from_raw_mode(staged_stat.st_mode).is_file()
++        || (staged_stat.st_mode & 0o022) != 0
++        || staged_stat.st_size <= 0
++    {
++        bail!("Unsafe staged daemon");
++    }
++
++    // /proc/self/exe is a kernel-provided magic symlink, so O_NOFOLLOW is
++    // intentionally not used here: it always fails with ELOOP.
++    let self_fd = open(
++        "/proc/self/exe",
++        OFlags::RDONLY | OFlags::CLOEXEC,
++        Mode::empty(),
++    )
++    .with_context(|| "Failed to open /proc/self/exe")?;
++    let self_stat = fstat(&self_fd).with_context(|| "Failed to stat /proc/self/exe")?;
++    if staged_stat.st_dev != self_stat.st_dev
++        || staged_stat.st_ino != self_stat.st_ino
++        || staged_stat.st_size != self_stat.st_size
++    {
++        bail!("Staged daemon is not this executable");
++    }
++
++    // Belt and braces: require the bytes to match too, and fail closed on any
++    // read error. Both fds stay open across the comparison so the inode cannot
++    // be swapped underneath us.
++    let mut staged_file = File::from(staged);
++    let mut self_file = File::from(self_fd);
++    let identical = crate::stage_policy::compare_streams(&mut staged_file, &mut self_file)
++        .with_context(|| "Failed to compare staged daemon with this executable")?;
++    drop(staged_file);
++    drop(self_file);
++    drop(stage_dir);
++    if !identical {
++        bail!("Staged daemon does not match this executable");
++    }
++
++    std::fs::rename(defs::KSUD_STAGE_PATH, defs::DAEMON_PATH).with_context(|| {
 +        format!(
 +            "Failed to rename {} to {}",
-+            staged_exe.as_ref().display(),
-+            defs::DAEMON_PATH
++            defs::KSUD_STAGE_PATH, defs::DAEMON_PATH
 +        )
 +    })?;
 +    chown(defs::DAEMON_PATH, Some(Uid::ROOT), Some(Gid::ROOT))?;
@@ -1591,7 +1667,7 @@ index 9365663c..f4631abe 100644
      restorecon::lsetfilecon(defs::DAEMON_PATH, restorecon::KSU_CON)?;
      // install binary assets
      assets::ensure_binaries(false).with_context(|| "Failed to extract assets")?;
-@@ -250,6 +280,11 @@ pub fn install(libadbroot: Option<PathBuf>) -> Result<()> {
+@@ -250,6 +356,11 @@ pub fn install(libadbroot: Option<PathBuf>) -> Result<()> {
      Ok(())
  }
  
@@ -1603,7 +1679,7 @@ index 9365663c..f4631abe 100644
  pub fn uninstall(package_name: &str) -> Result<()> {
      if Path::new(defs::MODULE_DIR).exists() {
          println!("- Uninstall modules..");
-@@ -294,10 +329,6 @@ pub fn daemonize_with<F: FnOnce() -> Result<()>>(use_init_pgrp: bool, configure:
+@@ -294,10 +405,6 @@ pub fn daemonize_with<F: FnOnce() -> Result<()>>(use_init_pgrp: bool, configure:
      Ok(())
  }
  
@@ -1614,3 +1690,119 @@ index 9365663c..f4631abe 100644
  pub fn create_daemon(use_init_pgrp: bool) -> Result<bool> {
      create_daemon_with(use_init_pgrp, || Ok(()))
  }
+diff --git a/userspace/ksud/src/defs.rs b/userspace/ksud/src/defs.rs
+index 5cb8eaaa..a73c626f 100644
+--- a/userspace/ksud/src/defs.rs
++++ b/userspace/ksud/src/defs.rs
+@@ -23,6 +23,9 @@ mod android {
+ 
+     pub const KSURC_PATH: &str = concatcp!(WORKING_DIR, ".ksurc");
+     pub const DAEMON_PATH: &str = concatcp!(ADB_DIR, "ksud");
++    /// Root-owned staging file for the daemon; the path is fixed so that no
++    /// caller can redirect the rename onto attacker-controlled storage.
++    pub const KSUD_STAGE_PATH: &str = "/data/adb/.ksud-stage";
+     pub const LIBADBROOT_PATH: &str = concatcp!(LIBRARY_DIR, "libadbroot.so");
+ 
+     pub const DAEMON_LINK_PATH: &str = concatcp!(BINARY_DIR, "ksud");
+diff --git a/userspace/ksud/src/main.rs b/userspace/ksud/src/main.rs
+index ada6b7ba..6539837a 100644
+--- a/userspace/ksud/src/main.rs
++++ b/userspace/ksud/src/main.rs
+@@ -51,6 +51,8 @@ mod sepolicy;
+ #[cfg(target_os = "android")]
+ mod soft_reboot;
+ #[cfg(target_os = "android")]
++mod stage_policy;
++#[cfg(target_os = "android")]
+ mod su;
+ #[cfg(target_os = "android")]
+ mod susfsd;
+diff --git a/userspace/ksud/src/stage_policy.rs b/userspace/ksud/src/stage_policy.rs
+new file mode 100644
+index 00000000..3135ae60
+--- /dev/null
++++ b/userspace/ksud/src/stage_policy.rs
+@@ -0,0 +1,83 @@
++//! Streaming byte comparison used by the root-owned daemon staging handoff.
++//!
++//! Kept free of filesystem state so the comparison itself is easy to reason
++//! about: it only ever reports equality when both streams read cleanly to EOF
++//! with identical bytes, and any read error is propagated (fail closed).
++
++use std::io::{self, Read};
++
++/// Read up to `buf.len()` bytes, looping over short reads but stopping at EOF.
++fn fill<R: Read>(reader: &mut R, buf: &mut [u8]) -> io::Result<usize> {
++    let mut filled = 0;
++    while filled < buf.len() {
++        match reader.read(&mut buf[filled..])? {
++            0 => break,
++            n => filled += n,
++        }
++    }
++    Ok(filled)
++}
++
++/// Compare two streams byte-for-byte without loading either fully into memory.
++pub fn compare_streams<A: Read, B: Read>(a: &mut A, b: &mut B) -> io::Result<bool> {
++    let mut buf_a = [0u8; 8192];
++    let mut buf_b = [0u8; 8192];
++    loop {
++        let n_a = fill(a, &mut buf_a)?;
++        let n_b = fill(b, &mut buf_b)?;
++        if n_a != n_b {
++            return Ok(false);
++        }
++        if n_a == 0 {
++            return Ok(true);
++        }
++        if buf_a[..n_a] != buf_b[..n_b] {
++            return Ok(false);
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::compare_streams;
++    use std::io::{self, Read};
++
++    #[test]
++    fn identical_streams_compare_equal() {
++        let a = b"the very same daemon bytes";
++        let b = b"the very same daemon bytes";
++        assert!(compare_streams(&mut &a[..], &mut &b[..]).unwrap());
++    }
++
++    #[test]
++    fn tampered_stream_compares_unequal() {
++        let a = b"the very same daemon bytes";
++        let b = b"the very same daemon bytez";
++        assert!(!compare_streams(&mut &a[..], &mut &b[..]).unwrap());
++    }
++
++    #[test]
++    fn length_mismatch_compares_unequal() {
++        let a = b"daemon";
++        let b = b"daemon-extra";
++        assert!(!compare_streams(&mut &a[..], &mut &b[..]).unwrap());
++    }
++
++    #[test]
++    fn short_reads_still_compare_equal() {
++        struct Chunked<'a>(&'a [u8]);
++        impl Read for Chunked<'_> {
++            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
++                let n = self.0.len().min(buf.len().min(3));
++                buf[..n].copy_from_slice(&self.0[..n]);
++                self.0 = &self.0[n..];
++                Ok(n)
++            }
++        }
++        let a = b"a daemon split into many short reads";
++        let b = b"a daemon split into many short reads";
++        let mut ca = Chunked(a);
++        let mut cb = Chunked(b);
++        assert!(compare_streams(&mut ca, &mut cb).unwrap());
++    }
++}
